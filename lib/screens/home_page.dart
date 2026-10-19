@@ -13,6 +13,9 @@ import 'kecocokan_lahan_screen.dart';
 import 'login_page.dart';
 import 'simulasi_penyiraman_screen.dart';
 import 'kemiringan_lahan_screen.dart';
+import 'log_pemeliharaan_screen.dart';
+import 'profil_screen.dart';
+import 'saran_pam_screen.dart';
 
 class _Feature {
   const _Feature(this.label, this.icon, [this.page]);
@@ -41,23 +44,17 @@ class _BerandaScreenState extends State<BerandaScreen> {
   String _locationText = "Mencari lokasi...";
 
   static const _features = <_Feature>[
-  _Feature('Lahan', Icons.landscape_outlined, KecocokanLahanScreen()),
-  _Feature('Diagnosa AI', Icons.local_florist_outlined, DiagnosaScreen()),
-  _Feature('Harga Ekspor', Icons.show_chart, HargaEksporScreen()),
-  _Feature('Jadwal', Icons.notifications_none, JadwalScreen()),
-  _Feature(
-    'Mini Game',
-    Icons.sports_esports_outlined,
-    SimulasiPenyiramanScreen(),
-  ),
-  _Feature(
-    'Waterpass',
-    Icons.straighten,
-    KemiringanLahanScreen(),
-  ),
-  _Feature('Log Tanam', Icons.menu_book_outlined),
-  _Feature('Tanaman', Icons.spa_outlined),
-];
+    _Feature('Lahan', Icons.landscape_outlined, KecocokanLahanScreen()),
+    _Feature('Diagnosa AI', Icons.local_florist_outlined, DiagnosaScreen()),
+    _Feature('Harga Ekspor', Icons.show_chart, HargaEksporScreen()),
+    _Feature('Jadwal', Icons.notifications_none, JadwalScreen()),
+    _Feature(
+        'Mini Game', Icons.sports_esports_outlined, SimulasiPenyiramanScreen()),
+    _Feature('Waterpass', Icons.straighten, KemiringanLahanScreen()),
+    _Feature('Log Tanam', Icons.menu_book_outlined,
+        LogPemeliharaanScreen()), // <-- Tambahkan di sini
+    _Feature('Tanaman', Icons.spa_outlined),
+  ];
 
   @override
   void initState() {
@@ -122,7 +119,8 @@ class _BerandaScreenState extends State<BerandaScreen> {
     }
 
     if (permission == LocationPermission.deniedForever) {
-      if (mounted) setState(() => _locationText = 'Izin lokasi ditolak permanen');
+      if (mounted)
+        setState(() => _locationText = 'Izin lokasi ditolak permanen');
       return;
     }
 
@@ -189,17 +187,20 @@ class _BerandaScreenState extends State<BerandaScreen> {
                         tooltip: 'Logout',
                       ),
                       const SizedBox(width: 4),
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: AppColors.greenSoft,
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                              color: AppColors.green, width: 1.2),
+                      GestureDetector(
+                        onTap: () => _open(context, const ProfilScreen()),
+                        child: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: AppColors.greenSoft,
+                            shape: BoxShape.circle,
+                            border:
+                                Border.all(color: AppColors.green, width: 1.2),
+                          ),
+                          child: const Icon(Icons.person_outline,
+                              color: AppColors.green, size: 20),
                         ),
-                        child: const Icon(Icons.person_outline,
-                            color: AppColors.green, size: 20),
                       ),
                     ],
                   ),
@@ -210,24 +211,21 @@ class _BerandaScreenState extends State<BerandaScreen> {
                     style: const TextStyle(fontSize: 13),
                     decoration: InputDecoration(
                       hintText: 'Cari tanaman, lahan, atau penyakit',
-                      hintStyle: const TextStyle(
-                          fontSize: 13, color: AppColors.muted),
+                      hintStyle:
+                          const TextStyle(fontSize: 13, color: AppColors.muted),
                       prefixIcon: const Icon(Icons.search,
                           size: 20, color: AppColors.muted),
                       filled: true,
                       fillColor: Colors.white,
                       isDense: true,
-                      contentPadding:
-                          const EdgeInsets.symmetric(vertical: 12),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 12),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
-                        borderSide:
-                            const BorderSide(color: AppColors.border),
+                        borderSide: const BorderSide(color: AppColors.border),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
-                        borderSide:
-                            const BorderSide(color: AppColors.green),
+                        borderSide: const BorderSide(color: AppColors.green),
                       ),
                     ),
                   ),
@@ -286,8 +284,7 @@ class _BerandaScreenState extends State<BerandaScreen> {
                           style: FilledButton.styleFrom(
                             backgroundColor: Colors.white,
                             foregroundColor: AppColors.green,
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 16),
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
                             minimumSize: const Size(0, 36),
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(10)),
@@ -303,8 +300,8 @@ class _BerandaScreenState extends State<BerandaScreen> {
 
                   // Fitur Utama Grid
                   const Text('Fitur utama',
-                      style: TextStyle(
-                          fontSize: 14, fontWeight: FontWeight.w700)),
+                      style:
+                          TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
                   const SizedBox(height: 10),
                   GridView.builder(
                     shrinkWrap: true,
@@ -385,8 +382,8 @@ class _BerandaScreenState extends State<BerandaScreen> {
 
                   // --- STATUS AKUN, SESSION & BIOMETRIK ---
                   const Text('Informasi Akun & Sesi',
-                      style: TextStyle(
-                          fontSize: 14, fontWeight: FontWeight.w700)),
+                      style:
+                          TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
                   const SizedBox(height: 8),
 
                   Card(
@@ -396,7 +393,8 @@ class _BerandaScreenState extends State<BerandaScreen> {
                       leading: const Icon(Icons.timer_outlined,
                           color: AppColors.primary),
                       title: const Text('Session berlaku sampai',
-                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                          style: TextStyle(
+                              fontSize: 13, fontWeight: FontWeight.w600)),
                       subtitle: Text(
                         _expiry?.toLocal().toString().split('.').first ?? '-',
                         style: const TextStyle(fontSize: 12),
@@ -413,7 +411,8 @@ class _BerandaScreenState extends State<BerandaScreen> {
                               : Icons.cloud_off_outlined,
                           color: AppColors.primary),
                       title: const Text('Sinkronisasi database online',
-                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                          style: TextStyle(
+                              fontSize: 13, fontWeight: FontWeight.w600)),
                       subtitle: Text(
                         u.synced
                             ? 'Akun sudah tersinkron'
@@ -429,7 +428,8 @@ class _BerandaScreenState extends State<BerandaScreen> {
                       secondary: const Icon(Icons.fingerprint,
                           color: AppColors.primary),
                       title: const Text('Login biometrik',
-                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                          style: TextStyle(
+                              fontSize: 13, fontWeight: FontWeight.w600)),
                       subtitle: Text(
                         _bioAvailable
                             ? 'Masuk dengan sidik jari / wajah'
