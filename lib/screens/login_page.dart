@@ -44,7 +44,7 @@ class _LoginPageState extends State<LoginPage> {
 
   void _goHome() {
     Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const HomePage()));
+        MaterialPageRoute(builder: (_) => const BerandaScreen()));
   }
 
   Future<void> _login() async {

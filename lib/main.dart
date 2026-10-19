@@ -28,7 +28,7 @@ class AgriSmartApp extends StatelessWidget {
         scaffoldBackgroundColor: AppColors.background,
         textTheme: GoogleFonts.interTextTheme(),
       ),
-      home: startLoggedIn ? const HomePage() : const LoginPage(),
+      home: startLoggedIn ? const BerandaScreen() : const LoginPage(),
     );
   }
 }

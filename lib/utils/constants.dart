@@ -9,6 +9,18 @@ class AppColors {
   static const fieldFill = Color(0xFFBFDCC4);
   static const infoBox = Color(0xFFDDEBDD);
   static const textMuted = Color(0xFF6B7A70);
+  static const muted = textMuted;
+  static const green = primary;
+  static const greenSoft = Color(0xFFE8F1E9);
+  static const greenLight = primaryLight;
+  static const border = fieldBorder;
+  static const amber = Color(0xFFFFA000);
+  static const amberSoft = Color(0xFFFFF3D6);
+  static const up = Color(0xFF2E7D32);
+  static const upSoft = Color(0xFFE8F5E9);
+  static const down = Color(0xFFC62828);
+  static const downSoft = Color(0xFFFFEBEE);
+  static const text = Color(0xFF26332A);
 }
 
 class AppConfig {

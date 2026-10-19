@@ -1,33 +1,63 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
 import '../utils/constants.dart';
 import '../widgets/auth_widgets.dart';
+import '../widgets/common.dart';
+import 'diagnosa_screen.dart';
+import 'harga_ekspor_screen.dart';
+import 'jadwal_screen.dart';
+import 'kecocokan_lahan_screen.dart';
 import 'login_page.dart';
 
-/// Halaman contoh setelah login: menampilkan data session & toggle biometrik.
-class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+class _Feature {
+  const _Feature(this.label, this.icon, [this.page]);
 
-  @override
-  State<HomePage> createState() => _HomePageState();
+  final String label;
+  final IconData icon;
+  final Widget? page;
 }
 
-class _HomePageState extends State<HomePage> {
+class BerandaScreen extends StatefulWidget {
+  const BerandaScreen({super.key});
+
+  @override
+  State<BerandaScreen> createState() => _BerandaScreenState();
+}
+
+class _BerandaScreenState extends State<BerandaScreen> {
+  // Logic Auth & Session
   final _auth = AuthService.instance;
   UserModel? _user;
   DateTime? _expiry;
   bool _bioEnabled = false;
   bool _bioAvailable = false;
 
+  // Logic LBS Location
+  String _locationText = "Mencari lokasi...";
+
+  static const _features = <_Feature>[
+    _Feature('Lahan', Icons.landscape_outlined, KecocokanLahanScreen()),
+    _Feature('Diagnosa AI', Icons.local_florist_outlined, DiagnosaScreen()),
+    _Feature('Harga Ekspor', Icons.show_chart, HargaEksporScreen()),
+    _Feature('Jadwal', Icons.notifications_none, JadwalScreen()),
+    _Feature('Mini Game', Icons.sports_esports_outlined),
+    _Feature('Waterpass', Icons.straighten),
+    _Feature('Log Tanam', Icons.menu_book_outlined),
+    _Feature('Tanaman', Icons.spa_outlined),
+  ];
+
   @override
   void initState() {
     super.initState();
-    _load();
+    _loadUserSession();
+    _getCurrentLocation();
   }
 
-  Future<void> _load() async {
+  // --- LOGIC AUTH & SESSION ---
+  Future<void> _loadUserSession() async {
     final u = await _auth.currentUser();
     final e = await _auth.sessionExpiry();
     final en = await _auth.isBiometricEnabled();
@@ -51,7 +81,7 @@ class _HomePageState extends State<HomePage> {
     } else {
       await _auth.disableBiometric();
     }
-    _load();
+    _loadUserSession();
   }
 
   Future<void> _logout() async {
@@ -61,64 +91,348 @@ class _HomePageState extends State<HomePage> {
         MaterialPageRoute(builder: (_) => const LoginPage()), (_) => false);
   }
 
+  // --- LOGIC GPS / LBS ---
+  Future<void> _getCurrentLocation() async {
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      if (mounted) setState(() => _locationText = 'GPS tidak aktif');
+      return;
+    }
+
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        if (mounted) setState(() => _locationText = 'Izin lokasi ditolak');
+        return;
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      if (mounted) setState(() => _locationText = 'Izin lokasi ditolak permanen');
+      return;
+    }
+
+    Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high);
+
+    if (mounted) {
+      setState(() {
+        _locationText =
+            '${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}';
+      });
+    }
+  }
+
+  String get _greeting {
+    final h = DateTime.now().hour;
+    if (h < 11) return 'Selamat pagi,';
+    if (h < 15) return 'Selamat siang,';
+    if (h < 18) return 'Selamat sore,';
+    return 'Selamat malam,';
+  }
+
+  void _open(BuildContext context, Widget page) {
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
+  }
+
   @override
   Widget build(BuildContext context) {
     final u = _user;
+
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('AgriSmart'),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        actions: [
-          IconButton(onPressed: _logout, icon: const Icon(Icons.logout)),
-        ],
-      ),
+      bottomNavigationBar: const AppBottomNav(),
       body: u == null
           ? const Center(child: CircularProgressIndicator())
-          : ListView(
-              padding: const EdgeInsets.all(20),
-              children: [
-                Text('Halo, ${u.name}!',
-                    style: const TextStyle(
-                        fontSize: 22, fontWeight: FontWeight.w800)),
-                const SizedBox(height: 6),
-                Text('@${u.username} • ${u.email}',
-                    style: const TextStyle(color: AppColors.textMuted)),
-                const SizedBox(height: 20),
-                Card(
-                  child: ListTile(
-                    leading: const Icon(Icons.timer_outlined,
-                        color: AppColors.primary),
-                    title: const Text('Session berlaku sampai'),
-                    subtitle: Text(_expiry?.toLocal().toString().split('.').first ?? '-'),
+          : SafeArea(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+                children: [
+                  // Header
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _greeting,
+                              style: const TextStyle(
+                                  fontSize: 12, color: AppColors.muted),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Halo, ${u.name}',
+                              style: const TextStyle(
+                                  fontSize: 22, fontWeight: FontWeight.w800),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: _logout,
+                        icon: const Icon(Icons.logout, color: AppColors.muted),
+                        tooltip: 'Logout',
+                      ),
+                      const SizedBox(width: 4),
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: AppColors.greenSoft,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                              color: AppColors.green, width: 1.2),
+                        ),
+                        child: const Icon(Icons.person_outline,
+                            color: AppColors.green, size: 20),
+                      ),
+                    ],
                   ),
-                ),
-                Card(
-                  child: ListTile(
-                    leading: Icon(
-                        u.synced ? Icons.cloud_done_outlined : Icons.cloud_off_outlined,
-                        color: AppColors.primary),
-                    title: const Text('Sinkronisasi database online'),
-                    subtitle: Text(u.synced
-                        ? 'Akun sudah tersinkron'
-                        : 'Menunggu koneksi untuk sinkronisasi'),
+                  const SizedBox(height: 14),
+
+                  // Search
+                  TextField(
+                    style: const TextStyle(fontSize: 13),
+                    decoration: InputDecoration(
+                      hintText: 'Cari tanaman, lahan, atau penyakit',
+                      hintStyle: const TextStyle(
+                          fontSize: 13, color: AppColors.muted),
+                      prefixIcon: const Icon(Icons.search,
+                          size: 20, color: AppColors.muted),
+                      filled: true,
+                      fillColor: Colors.white,
+                      isDense: true,
+                      contentPadding:
+                          const EdgeInsets.symmetric(vertical: 12),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide:
+                            const BorderSide(color: AppColors.border),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide:
+                            const BorderSide(color: AppColors.green),
+                      ),
+                    ),
                   ),
-                ),
-                Card(
-                  child: SwitchListTile(
-                    secondary:
-                        const Icon(Icons.fingerprint, color: AppColors.primary),
-                    title: const Text('Login biometrik'),
-                    subtitle: Text(_bioAvailable
-                        ? 'Masuk dengan sidik jari / wajah'
-                        : 'Tidak tersedia di perangkat ini'),
-                    value: _bioEnabled,
-                    activeColor: AppColors.primary,
-                    onChanged: _bioAvailable ? _toggleBio : null,
+                  const SizedBox(height: 12),
+                  const PillChips(
+                      labels: ['Semua', 'Tanaman', 'Lahan', 'Penyakit']),
+                  const SizedBox(height: 14),
+
+                  // Kartu Lokasi (LBS)
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: AppColors.green,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Row(
+                      children: [
+                        const IconBox(
+                          icon: Icons.location_on_outlined,
+                          size: 40,
+                          bg: AppColors.greenLight,
+                          fg: Colors.white,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Lokasi terdeteksi',
+                                style: TextStyle(
+                                    fontSize: 10, color: Color(0xFFC9DCCF)),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                _locationText,
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              const Text(
+                                '3 jenis tanaman cocok di sekitar Anda',
+                                style: TextStyle(
+                                    fontSize: 10, color: Color(0xFFC9DCCF)),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        FilledButton(
+                          onPressed: () =>
+                              _open(context, const KecocokanLahanScreen()),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: AppColors.green,
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 16),
+                            minimumSize: const Size(0, 36),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10)),
+                          ),
+                          child: const Text('Lihat',
+                              style: TextStyle(
+                                  fontSize: 12, fontWeight: FontWeight.w700)),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 18),
+
+                  // Fitur Utama Grid
+                  const Text('Fitur utama',
+                      style: TextStyle(
+                          fontSize: 14, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 10),
+                  GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: _features.length,
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 4,
+                      mainAxisSpacing: 10,
+                      crossAxisSpacing: 8,
+                      childAspectRatio: 0.82,
+                    ),
+                    itemBuilder: (context, i) {
+                      final f = _features[i];
+                      return InkWell(
+                        borderRadius: BorderRadius.circular(12),
+                        onTap: () => f.page != null
+                            ? _open(context, f.page!)
+                            : showSoon(context, '${f.label} segera hadir'),
+                        child: Column(
+                          children: [
+                            IconBox(icon: f.icon, size: 54, radius: 14),
+                            const SizedBox(height: 6),
+                            Text(
+                              f.label,
+                              textAlign: TextAlign.center,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                  fontSize: 11, fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Pengingat Penyiraman
+                  InkWell(
+                    borderRadius: BorderRadius.circular(14),
+                    onTap: () => _open(context, const JadwalScreen()),
+                    child: const AppCard(
+                      child: Row(
+                        children: [
+                          IconBox(
+                            icon: Icons.water_drop_outlined,
+                            size: 38,
+                            bg: AppColors.amberSoft,
+                            fg: AppColors.amber,
+                          ),
+                          SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Penyiraman cabai, 06.00 WIB',
+                                  style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700),
+                                ),
+                                SizedBox(height: 2),
+                                Text(
+                                  'Basah. Ketuk untuk bermain simulasi',
+                                  style: TextStyle(
+                                      fontSize: 10, color: AppColors.muted),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(Icons.chevron_right, color: AppColors.muted),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+
+                  // --- STATUS AKUN, SESSION & BIOMETRIK ---
+                  const Text('Informasi Akun & Sesi',
+                      style: TextStyle(
+                          fontSize: 14, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 8),
+
+                  Card(
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                    child: ListTile(
+                      leading: const Icon(Icons.timer_outlined,
+                          color: AppColors.primary),
+                      title: const Text('Session berlaku sampai',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                      subtitle: Text(
+                        _expiry?.toLocal().toString().split('.').first ?? '-',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  ),
+                  Card(
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                    child: ListTile(
+                      leading: Icon(
+                          u.synced
+                              ? Icons.cloud_done_outlined
+                              : Icons.cloud_off_outlined,
+                          color: AppColors.primary),
+                      title: const Text('Sinkronisasi database online',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                      subtitle: Text(
+                        u.synced
+                            ? 'Akun sudah tersinkron'
+                            : 'Menunggu koneksi untuk sinkronisasi',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  ),
+                  Card(
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                    child: SwitchListTile(
+                      secondary: const Icon(Icons.fingerprint,
+                          color: AppColors.primary),
+                      title: const Text('Login biometrik',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                      subtitle: Text(
+                        _bioAvailable
+                            ? 'Masuk dengan sidik jari / wajah'
+                            : 'Tidak tersedia di perangkat ini',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                      value: _bioEnabled,
+                      activeColor: AppColors.primary,
+                      onChanged: _bioAvailable ? _toggleBio : null,
+                    ),
+                  ),
+                ],
+              ),
             ),
     );
   }

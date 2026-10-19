@@ -17,6 +17,7 @@ dependencies:
   local_auth: ^2.3.0           # sidik jari / face unlock
   http: ^1.2.2                 # koneksi database online (REST API)
   google_fonts: ^6.2.1
+  geolocator: ^14.0.2
 
 dev_dependencies:
   flutter_test:
