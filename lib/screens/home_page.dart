@@ -11,6 +11,8 @@ import 'harga_ekspor_screen.dart';
 import 'jadwal_screen.dart';
 import 'kecocokan_lahan_screen.dart';
 import 'login_page.dart';
+import 'simulasi_penyiraman_screen.dart';
+import 'kemiringan_lahan_screen.dart';
 
 class _Feature {
   const _Feature(this.label, this.icon, [this.page]);
@@ -39,15 +41,23 @@ class _BerandaScreenState extends State<BerandaScreen> {
   String _locationText = "Mencari lokasi...";
 
   static const _features = <_Feature>[
-    _Feature('Lahan', Icons.landscape_outlined, KecocokanLahanScreen()),
-    _Feature('Diagnosa AI', Icons.local_florist_outlined, DiagnosaScreen()),
-    _Feature('Harga Ekspor', Icons.show_chart, HargaEksporScreen()),
-    _Feature('Jadwal', Icons.notifications_none, JadwalScreen()),
-    _Feature('Mini Game', Icons.sports_esports_outlined),
-    _Feature('Waterpass', Icons.straighten),
-    _Feature('Log Tanam', Icons.menu_book_outlined),
-    _Feature('Tanaman', Icons.spa_outlined),
-  ];
+  _Feature('Lahan', Icons.landscape_outlined, KecocokanLahanScreen()),
+  _Feature('Diagnosa AI', Icons.local_florist_outlined, DiagnosaScreen()),
+  _Feature('Harga Ekspor', Icons.show_chart, HargaEksporScreen()),
+  _Feature('Jadwal', Icons.notifications_none, JadwalScreen()),
+  _Feature(
+    'Mini Game',
+    Icons.sports_esports_outlined,
+    SimulasiPenyiramanScreen(),
+  ),
+  _Feature(
+    'Waterpass',
+    Icons.straighten,
+    KemiringanLahanScreen(),
+  ),
+  _Feature('Log Tanam', Icons.menu_book_outlined),
+  _Feature('Tanaman', Icons.spa_outlined),
+];
 
   @override
   void initState() {

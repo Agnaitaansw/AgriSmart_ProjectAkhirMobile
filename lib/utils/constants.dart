@@ -21,6 +21,7 @@ class AppColors {
   static const down = Color(0xFFC62828);
   static const downSoft = Color(0xFFFFEBEE);
   static const text = Color(0xFF26332A);
+  
 }
 
 class AppConfig {

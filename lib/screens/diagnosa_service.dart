@@ -2,7 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:http/http.dart' as http;
-
+import '../widgets/auth_widgets.dart';
+import '../utils/constants.dart';
 import '../models/diagnosa_result.dart';
 
 /// Jalankan dengan:
