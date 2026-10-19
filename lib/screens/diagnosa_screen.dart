@@ -1,5 +1,10 @@
-import 'package:flutter/material.dart';
+import 'dart:io';
 
+import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+
+import '../models/diagnosa_result.dart';
+import '../screens/diagnosa_service.dart';
 import '../utils/constants.dart';
 import '../widgets/common.dart';
 import '../widgets/auth_widgets.dart';
@@ -12,13 +17,16 @@ class DiagnosaScreen extends StatefulWidget {
 }
 
 class _DiagnosaScreenState extends State<DiagnosaScreen> {
-  final _controller = TextEditingController(
-    text:
-        'Daun bagian bawah muncul bercak cokelat bulat dengan tepi kuning, lalu rontok sejak 3 hari lalu.',
-  );
+  final _controller = TextEditingController();
+  final _picker = ImagePicker();
+  final _service = DiagnosaService();
 
+  static const _tanaman = 'Cabai rawit';
+
+  File? _foto;
   bool _loading = false;
-  bool _hasResult = true;
+  DiagnosaResult? _result;
+  String? _error;
 
   @override
   void dispose() {
@@ -26,20 +34,137 @@ class _DiagnosaScreenState extends State<DiagnosaScreen> {
     super.dispose();
   }
 
+  Future<void> _pickPhoto(ImageSource source) async {
+    try {
+      final x = await _picker.pickImage(
+        source: source,
+        maxWidth: 1280,
+        imageQuality: 75,
+      );
+      if (x == null) return;
+      setState(() {
+        _foto = File(x.path);
+        _result = null;
+        _error = null;
+      });
+    } catch (_) {
+      if (mounted) showSoon(context, 'Tidak bisa mengakses kamera/galeri');
+    }
+  }
+
+  void _showPhotoSheet() {
+    showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: const Text('Ambil foto'),
+              onTap: () {
+                Navigator.pop(context);
+                _pickPhoto(ImageSource.camera);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Pilih dari galeri'),
+              onTap: () {
+                Navigator.pop(context);
+                _pickPhoto(ImageSource.gallery);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _analyze() async {
-    if (_controller.text.trim().isEmpty) {
-      showSoon(context, 'Tulis gejalanya dulu ya');
+    final keluhan = _controller.text.trim();
+    if (keluhan.isEmpty && _foto == null) {
+      showSoon(context, 'Tulis gejala atau unggah foto dulu ya');
       return;
     }
     FocusScope.of(context).unfocus();
-    setState(() => _loading = true);
-    // Simulasi panggilan API AI.
-    await Future<void>.delayed(const Duration(milliseconds: 900));
-    if (!mounted) return;
     setState(() {
-      _loading = false;
-      _hasResult = true;
+      _loading = true;
+      _error = null;
+      _result = null;
     });
+
+    try {
+      final r = await _service.analisis(
+        tanaman: _tanaman,
+        keluhan: keluhan,
+        foto: _foto,
+      );
+      if (!mounted) return;
+      setState(() => _result = r);
+    } on SocketException {
+      if (mounted) setState(() => _error = 'Tidak ada koneksi internet.');
+    } catch (e) {
+      if (mounted) {
+        setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Widget _photoSection() {
+    if (_foto == null) {
+      return InkWell(
+        onTap: _showPhotoSheet,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          height: 90,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: AppColors.greenSoft,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: AppColors.green.withOpacity(0.5)),
+          ),
+          child: const Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.add_a_photo_outlined, color: AppColors.green),
+              SizedBox(height: 6),
+              Text('Unggah foto daun/tanaman (opsional)',
+                  style: TextStyle(fontSize: 11, color: AppColors.green)),
+            ],
+          ),
+        ),
+      );
+    }
+    return Stack(
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: Image.file(_foto!,
+              height: 160, width: double.infinity, fit: BoxFit.cover),
+        ),
+        Positioned(
+          top: 6,
+          right: 6,
+          child: Row(
+            children: [
+              _MiniBtn(icon: Icons.edit, onTap: _showPhotoSheet),
+              const SizedBox(width: 6),
+              _MiniBtn(
+                icon: Icons.close,
+                onTap: () => setState(() {
+                  _foto = null;
+                  _result = null;
+                }),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -71,7 +196,7 @@ class _DiagnosaScreenState extends State<DiagnosaScreen> {
                       border: Border.all(color: AppColors.green),
                     ),
                     child: const Text(
-                      'Cabai rawit',
+                      _tanaman,
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
@@ -82,6 +207,11 @@ class _DiagnosaScreenState extends State<DiagnosaScreen> {
                 ],
               ),
               const SizedBox(height: 12),
+              const Text('Foto tanaman',
+                  style: TextStyle(fontSize: 11, color: AppColors.muted)),
+              const SizedBox(height: 6),
+              _photoSection(),
+              const SizedBox(height: 12),
               const Text('Keluhan gejala',
                   style: TextStyle(fontSize: 11, color: AppColors.muted)),
               const SizedBox(height: 6),
@@ -90,6 +220,9 @@ class _DiagnosaScreenState extends State<DiagnosaScreen> {
                 maxLines: 4,
                 style: const TextStyle(fontSize: 12.5, height: 1.4),
                 decoration: InputDecoration(
+                  hintText:
+                      'Contoh: daun bawah muncul bercak cokelat, lalu rontok sejak 3 hari lalu.',
+                  hintStyle: const TextStyle(fontSize: 12, color: AppColors.muted),
                   isDense: true,
                   contentPadding: const EdgeInsets.all(12),
                   enabledBorder: OutlineInputBorder(
@@ -132,23 +265,54 @@ class _DiagnosaScreenState extends State<DiagnosaScreen> {
           ),
         ),
         const SizedBox(height: 12),
-        if (_hasResult && !_loading) const _ResultCard(),
+        if (_error != null)
+          AppCard(
+            child: Row(
+              children: [
+                const Icon(Icons.error_outline, color: Colors.red, size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(_error!, style: const TextStyle(fontSize: 12)),
+                ),
+                TextButton(onPressed: _analyze, child: const Text('Coba lagi')),
+              ],
+            ),
+          ),
+        if (_result != null && !_loading) _ResultCard(result: _result!),
       ],
     );
   }
 }
 
-class _ResultCard extends StatelessWidget {
-  const _ResultCard();
-
-  static const _steps = [
-    'Buang dan musnahkan daun yang terinfeksi.',
-    'Semprot fungisida berbahan aktif mankozeb sesuai dosis label.',
-    'Siram pagi hari dan atur jarak tanam agar daun cepat kering.',
-  ];
+class _MiniBtn extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  const _MiniBtn({required this.icon, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
+    return Material(
+      color: Colors.black54,
+      shape: const CircleBorder(),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(6),
+          child: Icon(icon, size: 16, color: Colors.white),
+        ),
+      ),
+    );
+  }
+}
+
+class _ResultCard extends StatelessWidget {
+  final DiagnosaResult result;
+  const _ResultCard({required this.result});
+
+  @override
+  Widget build(BuildContext context) {
+    final steps = result.langkah;
     return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -165,9 +329,9 @@ class _ResultCard extends StatelessWidget {
                   color: AppColors.upSoft,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Text(
-                  'Keyakinan 87%',
-                  style: TextStyle(
+                child: Text(
+                  'Keyakinan ${result.keyakinan}%',
+                  style: const TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
                     color: AppColors.up,
@@ -177,48 +341,51 @@ class _ResultCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 4),
-          const Text('Bercak daun Cercospora',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+          Text(result.penyakit,
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
           const SizedBox(height: 4),
-          const Text(
-            'Disebabkan jamur yang menyebar saat kelembapan tinggi dan daun sering basah.',
-            style: TextStyle(fontSize: 11.5, color: AppColors.muted, height: 1.4),
+          Text(
+            result.penjelasan,
+            style: const TextStyle(
+                fontSize: 11.5, color: AppColors.muted, height: 1.4),
           ),
-          const SizedBox(height: 14),
-          const Text('Rekomendasi penanganan',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 8),
-          for (var i = 0; i < _steps.length; i++)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 20,
-                    height: 20,
-                    alignment: Alignment.center,
-                    decoration: const BoxDecoration(
-                      color: AppColors.greenSoft,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Text(
-                      '${i + 1}',
-                      style: const TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.green,
+          if (steps.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            const Text('Rekomendasi penanganan',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 8),
+            for (var i = 0; i < steps.length; i++)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 20,
+                      height: 20,
+                      alignment: Alignment.center,
+                      decoration: const BoxDecoration(
+                        color: AppColors.greenSoft,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Text(
+                        '${i + 1}',
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.green,
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(_steps[i],
-                        style: const TextStyle(fontSize: 12, height: 1.4)),
-                  ),
-                ],
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(steps[i],
+                          style: const TextStyle(fontSize: 12, height: 1.4)),
+                    ),
+                  ],
+                ),
               ),
-            ),
+          ],
           const SizedBox(height: 6),
           Row(
             children: [
