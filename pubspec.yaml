@@ -15,11 +15,12 @@ dependencies:
   crypto: ^3.0.3               # SHA-256 / HMAC untuk PBKDF2
   flutter_secure_storage: ^9.2.2  # simpan session token terenkripsi (Keystore/Keychain)
   local_auth: ^2.3.0           # sidik jari / face unlock
-  http: ^1.2.2                 # koneksi database online (REST API)
+  http: ^1.6.0                 # koneksi database online (REST API)
   google_fonts: ^6.2.1
   geolocator: ^14.0.2
   image_picker: ^1.2.4
   sensors_plus: ^6.0.0
+  html: ^0.15.7
 
 dev_dependencies:
   flutter_test:
