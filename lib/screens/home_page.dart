@@ -3,7 +3,6 @@ import 'package:geolocator/geolocator.dart';
 
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
-import '../services/sync_service.dart';
 import '../utils/constants.dart';
 import '../widgets/common.dart';
 import 'diagnosa_screen.dart';
@@ -50,7 +49,7 @@ class _BerandaScreenState extends State<BerandaScreen> {
     ),
     _Feature('Waterpass', Icons.straighten, KemiringanLahanScreen()),
     _Feature('Log Tanam', Icons.menu_book_outlined, LogPemeliharaanScreen()),
-    // _Feature('Tanaman', Icons.spa_outlined, const TanamanScreen()),
+    _Feature('Tanaman', Icons.spa_outlined, const TanamanScreen()),
   ];
 
   @override
@@ -58,9 +57,6 @@ class _BerandaScreenState extends State<BerandaScreen> {
     super.initState();
     _loadUserSession();
     _getCurrentLocation();
-
-    // Sinkronisasi data pengguna ke cloud saat halaman beranda dibuka
-    SyncService.instance.syncUsersToCloud();
   }
 
   Future<void> _loadUserSession() async {

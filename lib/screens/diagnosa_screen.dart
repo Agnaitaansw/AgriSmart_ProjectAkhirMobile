@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../models/diagnosa_result.dart';
-import '../screens/diagnosa_service.dart';
+import '../services/diagnosa_service.dart';
 import '../utils/constants.dart';
 import '../widgets/common.dart';
 

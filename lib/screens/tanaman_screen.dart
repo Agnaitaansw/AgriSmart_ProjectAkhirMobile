@@ -1,9 +1,13 @@
+
 import 'package:flutter/material.dart';
 
+import '../models/user_plant.dart';
+import '../services/plant_manager.dart';
 import '../utils/constants.dart';
 import '../utils/crop_recommendation.dart';
 import '../widgets/common.dart';
 import 'kecocokan_lahan_screen.dart';
+import 'tanaman_detail_screen.dart';
 
 class TanamanScreen extends StatefulWidget {
   const TanamanScreen({super.key});
@@ -12,7 +16,106 @@ class TanamanScreen extends StatefulWidget {
   State<TanamanScreen> createState() => _TanamanScreenState();
 }
 
-class _TanamanScreenState extends State<TanamanScreen> {
+class _TanamanScreenState extends State<TanamanScreen> { 
+  late Future<List<UserPlant>> _plantsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPlants();
+  }
+
+  void _loadPlants() {
+    _plantsFuture = PlantManager.instance.getPlants();
+  }
+
+  Future<void> _refreshPlants() async {
+    setState(_loadPlants);
+    await _plantsFuture;
+  }
+
+  Future<void> _openDetail(CropRecommendation crop) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => TanamanDetailScreen(crop: crop),
+      ),
+    );
+
+    if (mounted) {
+      await _refreshPlants();
+    }
+  }
+
+  Future<void> _openLandAnalysis() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const KecocokanLahanScreen(),
+      ),
+    );
+
+    if (mounted) {
+      setState(_loadPlants);
+    }
+  }
+
+  Future<void> _deletePlant(UserPlant plant) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Hapus tanaman?'),
+        content: Text(
+          'Tanaman ${plant.name} akan dihapus dari daftar Tanaman Saya.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red,
+            ),
+            child: const Text('Hapus'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true || !mounted) return;
+
+    try {
+      await PlantManager.instance.removePlant(plant);
+
+      if (!mounted) return;
+
+      await _refreshPlants();
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${plant.name} berhasil dihapus.'),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Gagal menghapus tanaman.'),
+        ),
+      );
+    }
+  }
+
+  String _formatDate(DateTime date) {
+    final d = date.day.toString().padLeft(2, '0');
+    final m = date.month.toString().padLeft(2, '0');
+    final y = date.year.toString();
+    return '$d/$m/$y';
+  }
+
   @override
   Widget build(BuildContext context) {
     final result = CropAnalysisStore.latest;
@@ -20,38 +123,254 @@ class _TanamanScreenState extends State<TanamanScreen> {
     return SubPageScaffold(
       title: 'Tanaman',
       children: [
+        // BAGIAN 1: TANAMAN MILIK PENGGUNA
         const Text(
-          'Rekomendasi tanaman berdasarkan hasil analisis lahan',
-          style: TextStyle(fontSize: 11, color: AppColors.muted),
+          'Tanaman Saya',
+          style: TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 4),
+        const Text(
+          'Daftar tanaman yang sudah kamu pilih untuk ditanam.',
+          style: TextStyle(
+            fontSize: 11,
+            color: AppColors.muted,
+          ),
         ),
         const SizedBox(height: 12),
+
+        FutureBuilder<List<UserPlant>>(
+          future: _plantsFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const AppCard(
+                child: Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(20),
+                    child: CircularProgressIndicator(),
+                  ),
+                ),
+              );
+            }
+
+            if (snapshot.hasError) {
+              return AppCard(
+                child: Column(
+                  children: [
+                    const Text('Gagal memuat daftar tanaman.'),
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      onPressed: () {
+                        setState(_loadPlants);
+                      },
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Coba lagi'),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            final plants = snapshot.data ?? [];
+
+            if (plants.isEmpty) {
+              return AppCard(
+                child: Column(
+                  children: [
+                    const Icon(
+                      Icons.eco_outlined,
+                      size: 42,
+                      color: AppColors.green,
+                    ),
+                    const SizedBox(height: 10),
+                    const Text(
+                      'Belum ada tanaman',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Pilih tanaman dari rekomendasi di bawah. '
+                      'Tanaman yang kamu tambahkan akan muncul di sini.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 11,
+                        height: 1.5,
+                        color: AppColors.muted,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      onPressed: () {
+                        if (result != null &&
+                            result.recommendations.isNotEmpty) {
+                          _openDetail(result.recommendations.first);
+                        } else {
+                          _openLandAnalysis();
+                        }
+                      },
+                      icon: const Icon(Icons.add),
+                      label: const Text('Pilih Tanaman'),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            return Column(
+              children: plants.map((plant) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: AppCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: AppColors.greenSoft,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(
+                                Icons.eco,
+                                color: AppColors.green,
+                                size: 25,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    plant.name,
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Mulai ditanam: '
+                                    '${_formatDate(plant.plantedAt)}',
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      color: AppColors.muted,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              tooltip: 'Hapus tanaman',
+                              onPressed: () => _deletePlant(plant),
+                              icon: const Icon(
+                                Icons.delete_outline,
+                                color: Colors.red,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const Divider(height: 24),
+                        _PlantInfoRow(
+                          icon: Icons.water_drop_outlined,
+                          title: 'Interval penyiraman',
+                          value: 'Setiap ${plant.wateringEveryDays} hari',
+                        ),
+                        const SizedBox(height: 12),
+                        _PlantInfoRow(
+                          icon: Icons.agriculture_outlined,
+                          title: 'Perkiraan panen',
+                          value: _formatDate(plant.estimatedHarvest),
+                        ),
+                        const SizedBox(height: 12),
+                        _PlantInfoRow(
+                          icon: Icons.notifications_active_outlined,
+                          title: 'Penyiraman berikutnya',
+                          value: _formatDate(plant.nextWatering),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
+            );
+          },
+        ),
+
+        const SizedBox(height: 22),
+
+        // BAGIAN 2: HASIL ANALISIS LAHAN
+        Row(
+          children: [
+            const Expanded(
+              child: Text(
+                'Rekomendasi Tanaman',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            IconButton(
+              tooltip: 'Analisis ulang lahan',
+              onPressed: _openLandAnalysis,
+              icon: const Icon(
+                Icons.refresh,
+                color: AppColors.green,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        const Text(
+          'Pilih tanaman yang sesuai dengan hasil analisis lahanmu.',
+          style: TextStyle(
+            fontSize: 11,
+            color: AppColors.muted,
+          ),
+        ),
+        const SizedBox(height: 12),
+
         if (result == null)
           AppCard(
             child: Column(
               children: [
-                const Icon(Icons.grass, size: 42, color: AppColors.green),
+                const Icon(
+                  Icons.landscape_outlined,
+                  size: 42,
+                  color: AppColors.green,
+                ),
                 const SizedBox(height: 10),
                 const Text(
                   'Belum ada hasil analisis lahan',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
                 const SizedBox(height: 6),
                 const Text(
-                  'Buka fitur Lahan terlebih dahulu untuk mendapatkan rekomendasi tanaman sesuai lokasi.',
+                  'Lakukan analisis lahan terlebih dahulu '
+                  'untuk mendapatkan rekomendasi tanaman.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 11, color: AppColors.muted),
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: AppColors.muted,
+                    height: 1.5,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 FilledButton.icon(
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const KecocokanLahanScreen(),
-                      ),
-                    ).then((_) {
-                      if (mounted) setState(() {});
-                    });
-                  },
+                  onPressed: _openLandAnalysis,
                   icon: const Icon(Icons.location_searching),
                   label: const Text('Analisis Lahan'),
                 ),
@@ -67,62 +386,152 @@ class _TanamanScreenState extends State<TanamanScreen> {
             ),
             child: Row(
               children: [
-                const Icon(Icons.terrain, color: Colors.white, size: 30),
+                const Icon(
+                  Icons.terrain,
+                  color: Colors.white,
+                  size: 30,
+                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Zona hasil analisis',
-                          style: TextStyle(fontSize: 10, color: Colors.white70)),
-                      const SizedBox(height: 3),
-                      Text(result.zoneName,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w800,
-                            color: Colors.white,
-                          )),
+                      const Text(
+                        'Zona hasil analisis',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.white70,
+                        ),
+                      ),
                       const SizedBox(height: 3),
                       Text(
-                        '${result.altitude.toStringAsFixed(0)} mdpl  •  ${result.latitude.toStringAsFixed(4)}, ${result.longitude.toStringAsFixed(4)}',
-                        style: const TextStyle(fontSize: 9, color: Colors.white70),
+                        result.zoneName,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        '${result.altitude.toStringAsFixed(0)} mdpl',
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: Colors.white70,
+                        ),
                       ),
                     ],
                   ),
                 ),
-                IconButton(
-                  tooltip: 'Lihat analisis lahan',
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const KecocokanLahanScreen(),
-                      ),
-                    ).then((_) {
-                      if (mounted) setState(() {});
-                    });
-                  },
-                  icon: const Icon(Icons.refresh, color: Colors.white),
-                ),
               ],
             ),
           ),
-          const SizedBox(height: 18),
-          const Text(
-            'Tanaman yang direkomendasikan',
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '${result.recommendations.length} rekomendasi dari hasil analisis lahan',
-            style: const TextStyle(fontSize: 10, color: AppColors.muted),
-          ),
           const SizedBox(height: 12),
+          Text(
+            '${result.recommendations.length} tanaman direkomendasikan',
+            style: const TextStyle(
+              fontSize: 11,
+              color: AppColors.muted,
+            ),
+          ),
+          const SizedBox(height: 10),
+
           ...result.recommendations.asMap().entries.map((entry) {
             final index = entry.key;
             final crop = entry.value;
+
             return Padding(
               padding: const EdgeInsets.only(bottom: 10),
-              child: _PlantCard(rank: index + 1, crop: crop),
+              child: AppCard(
+                borderColor:
+                    crop.highlighted ? AppColors.green : AppColors.border,
+                borderWidth: crop.highlighted ? 1.5 : 1,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 42,
+                          height: 42,
+                          decoration: BoxDecoration(
+                            color: AppColors.greenSoft,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(
+                            Icons.eco_outlined,
+                            color: crop.color,
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${index + 1}. ${crop.name}',
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                crop.highlighted
+                                    ? 'Rekomendasi unggulan'
+                                    : 'Rekomendasi tanaman',
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  color: AppColors.muted,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Text(
+                          '${crop.percent}% cocok',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            color: crop.color,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: LinearProgressIndicator(
+                        value: crop.percent / 100,
+                        minHeight: 6,
+                        backgroundColor: AppColors.greenSoft,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          crop.color,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      crop.note,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        height: 1.5,
+                        color: AppColors.muted,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: () => _openDetail(crop),
+                        icon: const Icon(Icons.add_circle_outline),
+                        label: const Text('Lihat Detail & Pilih Tanaman'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             );
           }),
         ],
@@ -131,85 +540,51 @@ class _TanamanScreenState extends State<TanamanScreen> {
   }
 }
 
-class _PlantCard extends StatelessWidget {
-  const _PlantCard({required this.rank, required this.crop});
+class _PlantInfoRow extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String value;
 
-  final int rank;
-  final CropRecommendation crop;
-
-  IconData get _icon {
-    final name = crop.name.toLowerCase();
-    if (name.contains('padi') || name.contains('jagung')) return Icons.grass;
-    if (name.contains('kopi') || name.contains('teh') || name.contains('kelapa')) return Icons.park;
-    if (name.contains('kentang') || name.contains('wortel')) return Icons.spa;
-    if (name.contains('stroberi') || name.contains('buah') || name.contains('melon') || name.contains('semangka')) return Icons.eco;
-    return Icons.local_florist;
-  }
+  const _PlantInfoRow({
+    required this.icon,
+    required this.title,
+    required this.value,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return AppCard(
-      borderColor: crop.highlighted ? AppColors.green : AppColors.border,
-      borderWidth: crop.highlighted ? 1.5 : 1,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          icon,
+          size: 18,
+          color: AppColors.green,
+        ),
+        const SizedBox(width: 9),
+        Expanded(
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: AppColors.greenSoft,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(_icon, color: AppColors.green, size: 22),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(crop.name,
-                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
-                    const SizedBox(height: 3),
-                    Text(
-                      crop.highlighted ? 'Rekomendasi unggulan' : 'Rekomendasi tanaman',
-                      style: const TextStyle(fontSize: 10, color: AppColors.muted),
-                    ),
-                  ],
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
-              const SizedBox(width: 6),
-              Text('${crop.percent}% cocok',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: crop.color)),
-            ],
-          ),
-          const SizedBox(height: 12),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: LinearProgressIndicator(
-              value: crop.percent / 100,
-              minHeight: 6,
-              backgroundColor: AppColors.greenSoft,
-              valueColor: AlwaysStoppedAnimation<Color>(crop.color),
-            ),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Icon(Icons.info_outline, size: 15, color: AppColors.green),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(crop.note,
-                    style: const TextStyle(fontSize: 11, height: 1.4, color: AppColors.muted)),
+              const SizedBox(height: 3),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: AppColors.muted,
+                ),
               ),
             ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
