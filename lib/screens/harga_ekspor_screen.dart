@@ -595,7 +595,7 @@ class _HargaEksporScreenState extends State<HargaEksporScreen> {
               ),
               const SizedBox(height: 12),
               const Text(
-                '*Indikator jadwal umum 08.00–16.30 waktu London, '
+                'Indikator jadwal umum 08.00–16.30 waktu London, '
                 'Senin–Jumat. Ini bukan konfirmasi status bursa tertentu '
                 'atau hari libur pasar.',
                 style: TextStyle(fontSize: 11, height: 1.4),
