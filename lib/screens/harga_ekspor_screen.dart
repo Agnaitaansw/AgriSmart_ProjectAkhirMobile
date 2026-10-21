@@ -575,7 +575,6 @@ class _HargaEksporScreenState extends State<HargaEksporScreen> {
                       color: open ? Colors.green.shade700 : Colors.black26,
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Text(open ? 'Buka*' : 'Tutup*'),
                   ),
                 ],
               ),

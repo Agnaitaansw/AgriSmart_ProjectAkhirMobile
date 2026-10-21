@@ -14,6 +14,7 @@ import 'simulasi_penyiraman_screen.dart';
 import 'kemiringan_lahan_screen.dart';
 import 'log_pemeliharaan_screen.dart';
 import 'profil_screen.dart';
+import 'tanaman_screen.dart';
 
 class _Feature {
   const _Feature(this.label, this.icon, [this.page]);
@@ -48,7 +49,7 @@ class _BerandaScreenState extends State<BerandaScreen> {
     ),
     _Feature('Waterpass', Icons.straighten, KemiringanLahanScreen()),
     _Feature('Log Tanam', Icons.menu_book_outlined, LogPemeliharaanScreen()),
-    _Feature('Tanaman', Icons.spa_outlined),
+    _Feature('Tanaman', Icons.spa_outlined, const TanamanScreen()),
   ];
 
   @override

@@ -1,25 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import '../utils/constants.dart';
-import '../widgets/auth_widgets.dart';
+import '../utils/crop_recommendation.dart';
 import '../widgets/common.dart';
-
-// Model untuk menampung data rekomendasi tanaman
-class CropRecommendation {
-  final String name;
-  final int percent;
-  final String note;
-  final Color color;
-  final bool highlighted;
-
-  const CropRecommendation({
-    required this.name,
-    required this.percent,
-    required this.note,
-    required this.color,
-    this.highlighted = false,
-  });
-}
 
 class KecocokanLahanScreen extends StatefulWidget {
   final double? latitude;
@@ -69,7 +52,7 @@ class _KecocokanLahanScreenState extends State<KecocokanLahanScreen> {
           _lat = pos.latitude;
           _lng = pos.longitude;
           // Menggunakan altitude dari sensor GPS perangkat
-          _alt = pos.altitude > 0 ? pos.altitude : 118.0; 
+          _alt = pos.altitude > 0 ? pos.altitude : 118.0;
         });
       }
     } catch (_) {
@@ -79,90 +62,22 @@ class _KecocokanLahanScreenState extends State<KecocokanLahanScreen> {
     _analyzeLandMatch();
   }
 
-  // LOGIC INTI: Analisis Kategori Lahan Berdasarkan Ketinggian (mdpl)
+  // Hasil analisis disimpan agar halaman Tanaman memakai data yang sama.
   void _analyzeLandMatch() {
-    List<CropRecommendation> list = [];
+    final result = analyzeCropRecommendations(
+      latitude: _lat,
+      longitude: _lng,
+      altitude: _alt,
+    );
 
-    if (_alt < 25) {
-      // ZONA PESISIR
-      _zoneName = 'Pesisir / Pantai (< 25 mdpl)';
-      list = const [
-        CropRecommendation(
-          name: 'Kelapa Dalam / Genjah',
-          percent: 95,
-          note: 'Toleran terhadap kadar garam tinggi dan angin kencang',
-          color: AppColors.green,
-          highlighted: true,
-        ),
-        CropRecommendation(
-          name: 'Semangka',
-          percent: 88,
-          note: 'Suhu hangat pesisir sangat mendukung pembentukan gula',
-          color: AppColors.up,
-        ),
-        CropRecommendation(
-          name: 'Melon',
-          percent: 79,
-          note: 'Butuh intensitas cahaya matahari penuh sepanjang hari',
-          color: AppColors.amber,
-        ),
-      ];
-    } else if (_alt <= 400) {
-      // ZONA DATARAN RENDAH
-      _zoneName = 'Dataran Rendah (25 - 400 mdpl)';
-      list = const [
-        CropRecommendation(
-          name: 'Cabai rawit',
-          percent: 92,
-          note: 'Suhu ideal 25-30°C, tanah lempung berpasir gembur',
-          color: AppColors.green,
-          highlighted: true,
-        ),
-        CropRecommendation(
-          name: 'Padi sawah',
-          percent: 85,
-          note: 'Pasokan air irigasi mencukupi, tanah aluvial/grumosol',
-          color: AppColors.up,
-        ),
-        CropRecommendation(
-          name: 'Jagung hibrida',
-          percent: 74,
-          note: 'Kelembapan tanah sedang, aerasi tanah berjalan baik',
-          color: AppColors.amber,
-        ),
-      ];
-    } else {
-      // ZONA DATARAN TINGGI
-      _zoneName = 'Dataran Tinggi (> 400 mdpl)';
-      list = const [
-        CropRecommendation(
-          name: 'Kopi Arabika / Teh',
-          percent: 96,
-          note: 'Suhu sejuk 15-22°C sangat cocok untuk cita rasa optimal',
-          color: AppColors.green,
-          highlighted: true,
-        ),
-        CropRecommendation(
-          name: 'Kentang',
-          percent: 89,
-          note: 'Ketinggian ideal memperkecil risiko hama penyakit dataran rendah',
-          color: AppColors.up,
-        ),
-        CropRecommendation(
-          name: 'Wortel & Kubis',
-          percent: 81,
-          note: 'Suhu dingin mendukung pembesaran umbi dan pembentukan krop',
-          color: AppColors.amber,
-        ),
-      ];
-    }
+    CropAnalysisStore.latest = result;
 
-    if (mounted) {
-      setState(() {
-        _recommendations = list;
-        _isLoading = false;
-      });
-    }
+    if (!mounted) return;
+    setState(() {
+      _zoneName = result.zoneName;
+      _recommendations = result.recommendations;
+      _isLoading = false;
+    });
   }
 
   @override
@@ -182,8 +97,8 @@ class _KecocokanLahanScreenState extends State<KecocokanLahanScreen> {
                   top: 10,
                   left: 10,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(8),
@@ -191,8 +106,8 @@ class _KecocokanLahanScreenState extends State<KecocokanLahanScreen> {
                     ),
                     child: const Text(
                       'Radius analisis 2 km',
-                      style: TextStyle(
-                          fontSize: 10, fontWeight: FontWeight.w600),
+                      style:
+                          TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
                     ),
                   ),
                 ),
