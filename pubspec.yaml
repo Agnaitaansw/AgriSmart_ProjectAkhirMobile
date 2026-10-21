@@ -21,6 +21,7 @@ dependencies:
   image_picker: ^1.2.4
   sensors_plus: ^6.0.0
   html: ^0.15.7
+  supabase_flutter: ^2.18.3
 
 dev_dependencies:
   flutter_test:
