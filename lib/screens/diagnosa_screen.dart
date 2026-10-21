@@ -7,7 +7,6 @@ import '../models/diagnosa_result.dart';
 import '../screens/diagnosa_service.dart';
 import '../utils/constants.dart';
 import '../widgets/common.dart';
-import '../widgets/auth_widgets.dart';
 
 class DiagnosaScreen extends StatefulWidget {
   const DiagnosaScreen({super.key});

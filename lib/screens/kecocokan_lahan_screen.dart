@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import '../utils/constants.dart';
-import '../widgets/auth_widgets.dart';
 import '../widgets/common.dart';
 
 // Model untuk menampung data rekomendasi tanaman
@@ -69,7 +68,7 @@ class _KecocokanLahanScreenState extends State<KecocokanLahanScreen> {
           _lat = pos.latitude;
           _lng = pos.longitude;
           // Menggunakan altitude dari sensor GPS perangkat
-          _alt = pos.altitude > 0 ? pos.altitude : 118.0; 
+          _alt = pos.altitude > 0 ? pos.altitude : 118.0;
         });
       }
     } catch (_) {
@@ -106,6 +105,21 @@ class _KecocokanLahanScreenState extends State<KecocokanLahanScreen> {
           note: 'Butuh intensitas cahaya matahari penuh sepanjang hari',
           color: AppColors.amber,
         ),
+        CropRecommendation(
+          name: 'Bawang Merah',
+          percent: 93,
+          note:
+              'Angin pantai dan sinar matahari penuh sangat efektif menekan pertumbuhan jamur pada daun',
+          color: AppColors.green,
+          highlighted: true,
+        ),
+        CropRecommendation(
+          name: 'Buah Naga',
+          percent: 86,
+          note:
+              'Kaktus tropis yang menyukai iklim panas terik dan tanah pasir agar akar tidak mudah busuk',
+          color: AppColors.up,
+        ),
       ];
     } else if (_alt <= 400) {
       // ZONA DATARAN RENDAH
@@ -130,6 +144,21 @@ class _KecocokanLahanScreenState extends State<KecocokanLahanScreen> {
           note: 'Kelembapan tanah sedang, aerasi tanah berjalan baik',
           color: AppColors.amber,
         ),
+        CropRecommendation(
+          name: 'Tomat Sayur',
+          percent: 90,
+          note:
+              'Suhu hangat 24-28°C mempercepat proses pembungaan dan pematangan buah varietas hibrida',
+          color: AppColors.green,
+          highlighted: true,
+        ),
+        CropRecommendation(
+          name: 'Kacang Tanah',
+          percent: 84,
+          note:
+              'Tanah lempung berpasir sangat memudahkan ginofor (calon buah) menembus tanah',
+          color: AppColors.up,
+        ),
       ];
     } else {
       // ZONA DATARAN TINGGI
@@ -145,7 +174,8 @@ class _KecocokanLahanScreenState extends State<KecocokanLahanScreen> {
         CropRecommendation(
           name: 'Kentang',
           percent: 89,
-          note: 'Ketinggian ideal memperkecil risiko hama penyakit dataran rendah',
+          note:
+              'Ketinggian ideal memperkecil risiko hama penyakit dataran rendah',
           color: AppColors.up,
         ),
         CropRecommendation(
@@ -153,6 +183,21 @@ class _KecocokanLahanScreenState extends State<KecocokanLahanScreen> {
           percent: 81,
           note: 'Suhu dingin mendukung pembesaran umbi dan pembentukan krop',
           color: AppColors.amber,
+        ),
+        CropRecommendation(
+          name: 'Stroberi',
+          percent: 95,
+          note:
+              'Penurunan suhu drastis di malam hari (suhu dingin) sangat wajib untuk merangsang pembungaan',
+          color: AppColors.green,
+          highlighted: true,
+        ),
+        CropRecommendation(
+          name: 'Kubis (Kol)',
+          percent: 88,
+          note:
+              'Udara sejuk dataran tinggi membuat krop (bulatan daun) terbentuk sangat padat dan tidak mudah pecah',
+          color: AppColors.up,
         ),
       ];
     }
@@ -182,8 +227,8 @@ class _KecocokanLahanScreenState extends State<KecocokanLahanScreen> {
                   top: 10,
                   left: 10,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(8),
@@ -191,8 +236,8 @@ class _KecocokanLahanScreenState extends State<KecocokanLahanScreen> {
                     ),
                     child: const Text(
                       'Radius analisis 2 km',
-                      style: TextStyle(
-                          fontSize: 10, fontWeight: FontWeight.w600),
+                      style:
+                          TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
                     ),
                   ),
                 ),

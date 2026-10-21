@@ -48,7 +48,7 @@ class _BerandaScreenState extends State<BerandaScreen> {
     ),
     _Feature('Waterpass', Icons.straighten, KemiringanLahanScreen()),
     _Feature('Log Tanam', Icons.menu_book_outlined, LogPemeliharaanScreen()),
-    _Feature('Tanaman', Icons.spa_outlined),
+    _Feature('Tanaman', Icons.spa_outlined, const TanamanScreen()),
   ];
 
   @override
