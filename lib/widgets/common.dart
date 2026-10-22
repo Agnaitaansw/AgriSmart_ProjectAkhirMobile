@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import '../screens/login_page.dart';
+import '../screens/profil_screen.dart';
+import '../services/auth_service.dart';
 import '../utils/constants.dart';
 
 void showSoon(BuildContext context, [String msg = 'Fitur ini segera hadir']) {
@@ -204,6 +207,35 @@ class _DashedRRectPainter extends CustomPainter {
 class AppBottomNav extends StatelessWidget {
   const AppBottomNav({super.key});
 
+  Future<void> _logout(BuildContext context) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Keluar'),
+        content: const Text('Yakin ingin keluar dari akun?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Batal'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Keluar'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    await AuthService.instance.logout();
+    if (!context.mounted) return;
+
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginPage()),
+      (_) => false,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -227,17 +259,22 @@ class AppBottomNav extends StatelessWidget {
               _NavItem(
                 icon: Icons.person_outline,
                 label: 'Profil',
-                onTap: () => showSoon(context),
+                onTap: () {
+                  Navigator.of(context).popUntil((route) => route.isFirst);
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const ProfilScreen()),
+                  );
+                },
               ),
               _NavItem(
                 icon: Icons.chat_bubble_outline,
                 label: 'Saran P&M',
-                onTap: () => showSoon(context),
+                onTap: () => showSoon(context, 'Saran P&M segera hadir'),
               ),
               _NavItem(
                 icon: Icons.logout,
                 label: 'Logout',
-                onTap: () => showSoon(context),
+                onTap: () => _logout(context),
               ),
             ],
           ),

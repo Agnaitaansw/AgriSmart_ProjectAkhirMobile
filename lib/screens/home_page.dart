@@ -7,7 +7,6 @@ import '../utils/constants.dart';
 import '../widgets/common.dart';
 import 'diagnosa_screen.dart';
 import 'harga_ekspor_screen.dart';
-import 'jadwal_screen.dart';
 import 'kecocokan_lahan_screen.dart';
 import 'login_page.dart';
 import 'simulasi_penyiraman_screen.dart';
@@ -352,49 +351,6 @@ class _BerandaScreenState extends State<BerandaScreen> {
                   // Pengingat Penyiraman
                   InkWell(
                     borderRadius: BorderRadius.circular(14),
-                    onTap: () => _open(
-                      context,
-                      const JadwalScreen(),
-                    ),
-                    child: const AppCard(
-                      child: Row(
-                        children: [
-                          IconBox(
-                            icon: Icons.water_drop_outlined,
-                            size: 38,
-                            bg: AppColors.amberSoft,
-                            fg: AppColors.amber,
-                          ),
-                          SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Penyiraman cabai, 06.00 WIB',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                SizedBox(height: 2),
-                                Text(
-                                  'Basah. Ketuk untuk bermain simulasi',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    color: AppColors.muted,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Icon(
-                            Icons.chevron_right,
-                            color: AppColors.muted,
-                          ),
-                        ],
-                      ),
-                    ),
                   ),
                   const SizedBox(height: 18),
                 ],

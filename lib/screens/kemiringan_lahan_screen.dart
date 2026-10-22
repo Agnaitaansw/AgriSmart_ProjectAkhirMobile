@@ -8,35 +8,29 @@ import '../widgets/common.dart';
 
 class KemiringanLahanScreen extends StatefulWidget {
   const KemiringanLahanScreen({super.key});
-
   @override
   State<KemiringanLahanScreen> createState() => _KemiringanLahanScreenState();
 }
 
 class _KemiringanLahanScreenState extends State<KemiringanLahanScreen> {
   StreamSubscription<AccelerometerEvent>? _accelSubscription;
-
   double _pitch = 5.1; // Derajat Pitch (X-axis)
   double _roll = 6.7;  // Derajat Roll (Y-axis)
   double _slopeDegree = 8.4;
   double _slopePercent = 14.8;
   bool _isLocked = false;
-
   @override
   void initState() {
     super.initState();
     _startListeningSensors();
   }
-
   void _startListeningSensors() {
     _accelSubscription = accelerometerEventStream().listen((AccelerometerEvent event) {
       if (_isLocked || !mounted) return;
-
       setState(() {
         // Menghitung Pitch & Roll dari Accelerometer (dalam derajat)
         _pitch = (atan2(event.x, sqrt(event.y * event.y + event.z * event.z)) * 180 / pi).abs();
         _roll = (atan2(event.y, sqrt(event.x * event.x + event.z * event.z)) * 180 / pi).abs();
-
         // Kemiringan terukur (vektor total)
         _slopeDegree = sqrt(_pitch * _pitch + _roll * _roll);
         // Konversi derajat ke persentase kemiringan lahan
@@ -44,20 +38,17 @@ class _KemiringanLahanScreenState extends State<KemiringanLahanScreen> {
       });
     });
   }
-
   String get _topographyCategory {
     if (_slopePercent < 8) return 'Datar';
     if (_slopePercent <= 15) return 'Landai';
     if (_slopePercent <= 25) return 'Agak Curam';
     return 'Curam';
   }
-
   @override
   void dispose() {
     _accelSubscription?.cancel();
     super.dispose();
   }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -107,7 +98,6 @@ class _KemiringanLahanScreenState extends State<KemiringanLahanScreen> {
               ),
             ),
             const SizedBox(height: 12),
-
             // Row Metrics (Pitch, Roll, Status Sensor)
             Row(
               children: [
@@ -119,7 +109,6 @@ class _KemiringanLahanScreenState extends State<KemiringanLahanScreen> {
               ],
             ),
             const SizedBox(height: 14),
-
             // Kategori Topografi Lahan
             Container(
               padding: const EdgeInsets.all(14),
@@ -151,7 +140,6 @@ class _KemiringanLahanScreenState extends State<KemiringanLahanScreen> {
                     ],
                   ),
                   const SizedBox(height: 12),
-
                   // Indikator Bar Multi Warna
                   Row(
                     children: [
@@ -173,7 +161,6 @@ class _KemiringanLahanScreenState extends State<KemiringanLahanScreen> {
               ),
             ),
             const SizedBox(height: 18),
-
             // Tombol Aksi
             Row(
               children: [
@@ -194,25 +181,6 @@ class _KemiringanLahanScreenState extends State<KemiringanLahanScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Data kemiringan berhasil disimpan!')),
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF1E5B3E),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    ),
-                    child: const Text(
-                      'Simpan ke data lahan',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
-                    ),
-                  ),
-                ),
               ],
             ),
           ],
@@ -220,7 +188,6 @@ class _KemiringanLahanScreenState extends State<KemiringanLahanScreen> {
       ),
     );
   }
-
   Widget _buildMetricCard(String label, String val, {bool isBadge = false}) {
     return Expanded(
       child: Container(
@@ -248,7 +215,6 @@ class _KemiringanLahanScreenState extends State<KemiringanLahanScreen> {
       ),
     );
   }
-
   Widget _buildRangeBar(Color color, String label, bool isActive) {
     return Expanded(
       child: Column(
@@ -276,53 +242,43 @@ class _KemiringanLahanScreenState extends State<KemiringanLahanScreen> {
     );
   }
 }
-
 // Custom Painter Target Waterpass (Bullseye)
+
 class _WaterpassTargetPainter extends CustomPainter {
   final double pitch;
   final double roll;
-
   _WaterpassTargetPainter({required this.pitch, required this.roll});
-
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = size.width / 2;
-
     // Latar belakang lingkaran hijau muda
     final bgPaint = Paint()..color = const Color(0xFFE5EFE6);
     canvas.drawCircle(center, radius, bgPaint);
-
     // Garis Target Konsentris
     final linePaint = Paint()
       ..color = const Color(0xFF1E5B3E)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.2;
-
     canvas.drawCircle(center, radius, linePaint);
     canvas.drawCircle(center, radius * 0.65, linePaint);
     canvas.drawCircle(center, radius * 0.35, linePaint);
     canvas.drawCircle(center, radius * 0.12, linePaint);
-
     // Crosshair (Garis silang)
     canvas.drawLine(Offset(center.dx, 0), Offset(center.dx, size.height), linePaint);
     canvas.drawLine(Offset(0, center.dy), Offset(size.width, center.dy), linePaint);
-
     // Bola Gelembung Air (Merespons sensor pitch & roll)
     final bubbleOffsetX = (pitch * 3.0).clamp(-radius * 0.7, radius * 0.7);
     final bubbleOffsetY = (roll * 3.0).clamp(-radius * 0.7, radius * 0.7);
     final bubbleCenter = Offset(center.dx + bubbleOffsetX, center.dy + bubbleOffsetY);
-
     final bubblePaint = Paint()..color = const Color(0xFFD98E32); // Amber Brown
     canvas.drawCircle(bubbleCenter, 14, bubblePaint);
-
     final bubbleBorder = Paint()
       ..color = Colors.white
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
     canvas.drawCircle(bubbleCenter, 14, bubbleBorder);
   }
-
   @override
   bool shouldRepaint(covariant _WaterpassTargetPainter oldDelegate) {
     return oldDelegate.pitch != pitch || oldDelegate.roll != roll;
