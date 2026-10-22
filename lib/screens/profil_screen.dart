@@ -117,12 +117,25 @@ class _ProfilScreenState extends State<ProfilScreen> {
       final extension = picked.path.contains('.')
           ? picked.path.substring(picked.path.lastIndexOf('.'))
           : '.jpg';
+      // Nama file unik tiap ganti foto, supaya cache gambar Flutter tidak
+      // menampilkan foto lama dan notifier benar-benar terpicu.
       final savedFile = await File(picked.path).copy(
-        '${directory.path}/profile_$_userKey$extension',
+        '${directory.path}/profile_${_userKey}_'
+        '${DateTime.now().millisecondsSinceEpoch}$extension',
       );
 
       final prefs = await SharedPreferences.getInstance();
+      final oldPath = prefs.getString(_photoPreferenceKey);
       await prefs.setString(_photoPreferenceKey, savedFile.path);
+
+      if (oldPath != null && oldPath != savedFile.path) {
+        try {
+          final oldFile = File(oldPath);
+          if (await oldFile.exists()) await oldFile.delete();
+        } catch (_) {}
+      }
+
+      profilePhotoNotifier.value = savedFile.path;
 
       if (!mounted) return;
       setState(() => _photoPath = savedFile.path);

@@ -1,5 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
@@ -55,7 +59,15 @@ class _BerandaScreenState extends State<BerandaScreen> {
   void initState() {
     super.initState();
     _loadUserSession();
+    _loadProfilePhoto();
     _getCurrentLocation();
+  }
+
+  /// Ambil foto profil yang tersimpan (kunci sama dengan ProfilScreen).
+  Future<void> _loadProfilePhoto() async {
+    final userId = Supabase.instance.client.auth.currentUser?.id ?? 'guest';
+    final prefs = await SharedPreferences.getInstance();
+    profilePhotoNotifier.value = prefs.getString('profile_photo_$userId');
   }
 
   Future<void> _loadUserSession() async {
@@ -190,22 +202,38 @@ class _BerandaScreenState extends State<BerandaScreen> {
                       const SizedBox(width: 4),
                       GestureDetector(
                         onTap: () => _open(context, const ProfilScreen()),
-                        child: Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: AppColors.greenSoft,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: AppColors.green,
-                              width: 1.2,
-                            ),
-                          ),
-                          child: const Icon(
-                            Icons.person_outline,
-                            color: AppColors.green,
-                            size: 20,
-                          ),
+                        child: ValueListenableBuilder<String?>(
+                          valueListenable: profilePhotoNotifier,
+                          builder: (context, photoPath, _) {
+                            final hasPhoto = photoPath != null &&
+                                File(photoPath).existsSync();
+
+                            return Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: AppColors.greenSoft,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: AppColors.green,
+                                  width: 1.2,
+                                ),
+                                image: hasPhoto
+                                    ? DecorationImage(
+                                        image: FileImage(File(photoPath)),
+                                        fit: BoxFit.cover,
+                                      )
+                                    : null,
+                              ),
+                              child: hasPhoto
+                                  ? null
+                                  : const Icon(
+                                      Icons.person_outline,
+                                      color: AppColors.green,
+                                      size: 20,
+                                    ),
+                            );
+                          },
                         ),
                       ),
                     ],
@@ -348,12 +376,6 @@ class _BerandaScreenState extends State<BerandaScreen> {
                     },
                   ),
                   const SizedBox(height: 14),
-
-                  // Pengingat Penyiraman
-                  InkWell(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  const SizedBox(height: 18),
                 ],
               ),
             ),

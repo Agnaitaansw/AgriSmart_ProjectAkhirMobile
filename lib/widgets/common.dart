@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import '../screens/login_page.dart';
 import '../screens/profil_screen.dart';
-import '../services/auth_service.dart';
 import '../screens/saran_pam_screen.dart';
+import '../services/auth_service.dart';
 import '../utils/constants.dart';
+
+/// Path foto profil aktif. Diisi oleh ProfilScreen / Beranda, dibaca Beranda
+/// supaya avatar di header ikut berubah saat foto diganti.
+final ValueNotifier<String?> profilePhotoNotifier = ValueNotifier<String?>(null);
 
 void showSoon(BuildContext context, [String msg = 'Fitur ini segera hadir']) {
   ScaffoldMessenger.of(context)
