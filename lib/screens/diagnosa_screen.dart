@@ -210,7 +210,7 @@ class _DiagnosaScreenState extends State<DiagnosaScreen> {
   @override
   Widget build(BuildContext context) {
     return SubPageScaffold(
-      title: 'Diagnosa Penyakit AI',
+      title: 'FlorAI',
       actions: [
         IconButton(
           icon: const Icon(Icons.history, size: 22),
@@ -406,14 +406,7 @@ class _ResultCard extends StatelessWidget {
                   color: AppColors.upSoft,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Text(
-                  'Keyakinan ${result.keyakinan}%',
-                  style: const TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.up,
-                  ),
-                ),
+              
               ),
             ],
           ),
@@ -481,57 +474,7 @@ class _ResultCard extends StatelessWidget {
                 ),
               ),
           ],
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: () {
-                    showSoon(context, 'Disimpan ke riwayat');
-                  },
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.green,
-                    side: const BorderSide(
-                      color: AppColors.green,
-                    ),
-                    minimumSize: const Size(0, 40),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  child: const Text(
-                    'Simpan ke riwayat',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: FilledButton(
-                  onPressed: () {
-                    showSoon(context, 'Dicatat ke log tanam');
-                  },
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.green,
-                    minimumSize: const Size(0, 40),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  child: const Text(
-                    'Catat ke log',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
+                 
           const SizedBox(height: 12),
           const Center(
             child: Text(

@@ -39,9 +39,8 @@ class _BerandaScreenState extends State<BerandaScreen> {
 
   static const _features = <_Feature>[
     _Feature('Lahan', Icons.landscape_outlined, KecocokanLahanScreen()),
-    _Feature('Diagnosa AI', Icons.local_florist_outlined, DiagnosaScreen()),
+    _Feature('FlorAI', Icons.local_florist_outlined, DiagnosaScreen()),
     _Feature('Harga Ekspor', Icons.show_chart, HargaEksporScreen()),
-    _Feature('Jadwal', Icons.notifications_none, JadwalScreen()),
     _Feature(
       'Mini Game',
       Icons.sports_esports_outlined,
@@ -188,14 +187,6 @@ class _BerandaScreenState extends State<BerandaScreen> {
                           ],
                         ),
                       ),
-                      IconButton(
-                        onPressed: _logout,
-                        icon: const Icon(
-                          Icons.logout,
-                          color: AppColors.muted,
-                        ),
-                        tooltip: 'Logout',
-                      ),
                       const SizedBox(width: 4),
                       GestureDetector(
                         onTap: () => _open(context, const ProfilScreen()),
@@ -220,48 +211,6 @@ class _BerandaScreenState extends State<BerandaScreen> {
                     ],
                   ),
                   const SizedBox(height: 14),
-
-                  // Search
-                  TextField(
-                    style: const TextStyle(fontSize: 13),
-                    decoration: InputDecoration(
-                      hintText: 'Cari tanaman, lahan, atau penyakit',
-                      hintStyle: const TextStyle(
-                        fontSize: 13,
-                        color: AppColors.muted,
-                      ),
-                      prefixIcon: const Icon(
-                        Icons.search,
-                        size: 20,
-                        color: AppColors.muted,
-                      ),
-                      filled: true,
-                      fillColor: Colors.white,
-                      isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(
-                        vertical: 12,
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(
-                          color: AppColors.border,
-                        ),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(
-                          color: AppColors.green,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  const PillChips(
-                    labels: ['Semua', 'Tanaman', 'Lahan', 'Penyakit'],
-                  ),
-                  const SizedBox(height: 14),
-
                   // Kartu Lokasi
                   Container(
                     padding: const EdgeInsets.all(14),
