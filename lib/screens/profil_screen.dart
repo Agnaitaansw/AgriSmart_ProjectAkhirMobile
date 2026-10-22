@@ -235,7 +235,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
         elevation: 0,
         foregroundColor: Colors.black,
       ),
-      bottomNavigationBar: const AppBottomNav(),
+      bottomNavigationBar: const AppBottomNav(currentIndex: 1),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : SafeArea(

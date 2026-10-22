@@ -25,7 +25,7 @@ class _SaranPamScreenState extends State<SaranPamScreen> {
         elevation: 0,
         foregroundColor: Colors.black,
       ),
-      bottomNavigationBar: const AppBottomNav(),
+      bottomNavigationBar: const AppBottomNav(currentIndex: 2),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),
