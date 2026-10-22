@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 
 import '../models/user_plant.dart';
@@ -16,8 +15,9 @@ class TanamanScreen extends StatefulWidget {
   State<TanamanScreen> createState() => _TanamanScreenState();
 }
 
-class _TanamanScreenState extends State<TanamanScreen> { 
+class _TanamanScreenState extends State<TanamanScreen> {
   late Future<List<UserPlant>> _plantsFuture;
+  final _rekomendasiKey = GlobalKey(); // TAMBAH
 
   @override
   void initState() {
@@ -56,6 +56,17 @@ class _TanamanScreenState extends State<TanamanScreen> {
     if (mounted) {
       setState(_loadPlants);
     }
+  }
+
+  // TAMBAH
+  void _scrollToRekomendasi() {
+    final ctx = _rekomendasiKey.currentContext;
+    if (ctx == null) return;
+    Scrollable.ensureVisible(
+      ctx,
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeInOut,
+    );
   }
 
   Future<void> _deletePlant(UserPlant plant) async {
@@ -119,6 +130,7 @@ class _TanamanScreenState extends State<TanamanScreen> {
   @override
   Widget build(BuildContext context) {
     final result = CropAnalysisStore.latest;
+    final hasResult = result != null && result.recommendations.isNotEmpty;
 
     return SubPageScaffold(
       title: 'Tanaman',
@@ -204,17 +216,23 @@ class _TanamanScreenState extends State<TanamanScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
+                    // UBAH: tombol tidak lagi membuka detail tanaman pertama
                     OutlinedButton.icon(
                       onPressed: () {
-                        if (result != null &&
-                            result.recommendations.isNotEmpty) {
-                          _openDetail(result.recommendations.first);
+                        if (hasResult) {
+                          _scrollToRekomendasi();
                         } else {
                           _openLandAnalysis();
                         }
                       },
-                      icon: const Icon(Icons.add),
-                      label: const Text('Pilih Tanaman'),
+                      icon: Icon(
+                        hasResult
+                            ? Icons.arrow_downward
+                            : Icons.location_searching,
+                      ),
+                      label: Text(
+                        hasResult ? 'Lihat Rekomendasi' : 'Analisis Lahan Dulu',
+                      ),
                     ),
                   ],
                 ),
@@ -310,6 +328,7 @@ class _TanamanScreenState extends State<TanamanScreen> {
 
         // BAGIAN 2: HASIL ANALISIS LAHAN
         Row(
+          key: _rekomendasiKey, // TAMBAH
           children: [
             const Expanded(
               child: Text(
