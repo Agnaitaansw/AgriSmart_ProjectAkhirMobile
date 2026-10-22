@@ -12,7 +12,7 @@ import 'kecocokan_lahan_screen.dart';
 import 'login_page.dart';
 import 'simulasi_penyiraman_screen.dart';
 import 'kemiringan_lahan_screen.dart';
-import 'log_pemeliharaan_screen.dart';
+import 'blockchain_log_screen.dart';
 import 'profil_screen.dart';
 import 'tanaman_screen.dart';
 
@@ -48,7 +48,7 @@ class _BerandaScreenState extends State<BerandaScreen> {
       SimulasiPenyiramanScreen(),
     ),
     _Feature('Waterpass', Icons.straighten, KemiringanLahanScreen()),
-    _Feature('Log Tanam', Icons.menu_book_outlined, LogPemeliharaanScreen()),
+    _Feature('Poin', Icons.menu_book_outlined, const BlockchainLogScreen()),
     _Feature('Tanaman', Icons.spa_outlined, const TanamanScreen()),
   ];
 
