@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../utils/constants.dart';
 import '../widgets/common.dart';
 
+
 class SaranPamScreen extends StatefulWidget {
   const SaranPamScreen({super.key});
 
@@ -88,7 +89,7 @@ class _SaranPamScreenState extends State<SaranPamScreen> {
               maxLines: 4,
               style: const TextStyle(fontSize: 13),
               decoration: InputDecoration(
-                hintText: 'Tulis kesan Anda selama menggunakan Agrismart',
+                hintText: 'Tulis kesan Anda selama kuliah pemrogramman aplikasi mobile ',
                 hintStyle: const TextStyle(fontSize: 12, color: AppColors.muted),
                 filled: true,
                 fillColor: Colors.white,
@@ -112,7 +113,7 @@ class _SaranPamScreenState extends State<SaranPamScreen> {
               maxLines: 4,
               style: const TextStyle(fontSize: 13),
               decoration: InputDecoration(
-                hintText: 'Tulis saran untuk pengembangan untuk Agrismart',
+                hintText: 'Tulis saran untuk pengembangan mata kuliah ini agar lebih baik di masa depan',
                 hintStyle: const TextStyle(fontSize: 12, color: AppColors.muted),
                 filled: true,
                 fillColor: Colors.white,

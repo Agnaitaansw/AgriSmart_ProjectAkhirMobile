@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../screens/login_page.dart';
 import '../screens/profil_screen.dart';
 import '../services/auth_service.dart';
+import '../screens/saran_pam_screen.dart';
 import '../utils/constants.dart';
 
 void showSoon(BuildContext context, [String msg = 'Fitur ini segera hadir']) {
@@ -269,7 +270,12 @@ class AppBottomNav extends StatelessWidget {
               _NavItem(
                 icon: Icons.chat_bubble_outline,
                 label: 'Saran P&M',
-                onTap: () => showSoon(context, 'Saran P&M segera hadir'),
+                onTap: () {
+                  Navigator.of(context).popUntil((route) => route.isFirst);
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const SaranPamScreen()),
+                  );
+                },
               ),
               _NavItem(
                 icon: Icons.logout,

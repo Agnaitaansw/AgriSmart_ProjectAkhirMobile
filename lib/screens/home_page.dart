@@ -14,6 +14,7 @@ import 'kemiringan_lahan_screen.dart';
 import 'blockchain_log_screen.dart';
 import 'profil_screen.dart';
 import 'tanaman_screen.dart';
+import 'saran_pam_screen.dart';
 
 class _Feature {
   const _Feature(this.label, this.icon, [this.page]);
