@@ -1,3 +1,4 @@
+
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -20,7 +21,24 @@ class _DiagnosaScreenState extends State<DiagnosaScreen> {
   final _picker = ImagePicker();
   final _service = DiagnosaService();
 
-  static const _tanaman = 'Cabai rawit';
+  String _tanaman = 'Cabai rawit';
+
+  final List<String> _daftarTanaman = [
+    'Cabai rawit',
+    'Cabai merah',
+    'Tomat',
+    'Terong',
+    'Padi',
+    'Jagung',
+    'Kangkung',
+    'Bayam',
+    'Sawi',
+    'Mentimun',
+    'Semangka',
+    'Melon',
+    'Kedelai',
+    'Tanaman lainnya',
+  ];
 
   File? _foto;
   bool _loading = false;
@@ -40,14 +58,18 @@ class _DiagnosaScreenState extends State<DiagnosaScreen> {
         maxWidth: 1280,
         imageQuality: 75,
       );
-      if (x == null) return;
+
+      if (x == null || !mounted) return;
+
       setState(() {
         _foto = File(x.path);
         _result = null;
         _error = null;
       });
     } catch (_) {
-      if (mounted) showSoon(context, 'Tidak bisa mengakses kamera/galeri');
+      if (mounted) {
+        showSoon(context, 'Tidak bisa mengakses kamera/galeri');
+      }
     }
   }
 
@@ -83,11 +105,14 @@ class _DiagnosaScreenState extends State<DiagnosaScreen> {
 
   Future<void> _analyze() async {
     final keluhan = _controller.text.trim();
+
     if (keluhan.isEmpty && _foto == null) {
       showSoon(context, 'Tulis gejala atau unggah foto dulu ya');
       return;
     }
+
     FocusScope.of(context).unfocus();
+
     setState(() {
       _loading = true;
       _error = null;
@@ -100,16 +125,30 @@ class _DiagnosaScreenState extends State<DiagnosaScreen> {
         keluhan: keluhan,
         foto: _foto,
       );
+
       if (!mounted) return;
-      setState(() => _result = r);
+
+      setState(() {
+        _result = r;
+      });
     } on SocketException {
-      if (mounted) setState(() => _error = 'Tidak ada koneksi internet.');
+      if (mounted) {
+        setState(() {
+          _error = 'Tidak ada koneksi internet.';
+        });
+      }
     } catch (e) {
       if (mounted) {
-        setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+        setState(() {
+          _error = e.toString().replaceFirst('Exception: ', '');
+        });
       }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() {
+          _loading = false;
+        });
+      }
     }
   }
 
@@ -124,40 +163,61 @@ class _DiagnosaScreenState extends State<DiagnosaScreen> {
           decoration: BoxDecoration(
             color: AppColors.greenSoft,
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: AppColors.green.withOpacity(0.5)),
+            border: Border.all(
+              color: AppColors.green.withOpacity(0.5),
+            ),
           ),
           child: const Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.add_a_photo_outlined, color: AppColors.green),
+              Icon(
+                Icons.add_a_photo_outlined,
+                color: AppColors.green,
+              ),
               SizedBox(height: 6),
-              Text('Unggah foto daun/tanaman (opsional)',
-                  style: TextStyle(fontSize: 11, color: AppColors.green)),
+              Text(
+                'Unggah foto daun/tanaman (opsional)',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: AppColors.green,
+                ),
+              ),
             ],
           ),
         ),
       );
     }
+
     return Stack(
       children: [
         ClipRRect(
           borderRadius: BorderRadius.circular(10),
-          child: Image.file(_foto!,
-              height: 160, width: double.infinity, fit: BoxFit.cover),
+          child: Image.file(
+            _foto!,
+            height: 160,
+            width: double.infinity,
+            fit: BoxFit.cover,
+          ),
         ),
         Positioned(
           top: 6,
           right: 6,
           child: Row(
             children: [
-              _MiniBtn(icon: Icons.edit, onTap: _showPhotoSheet),
+              _MiniBtn(
+                icon: Icons.edit,
+                onTap: _showPhotoSheet,
+              ),
               const SizedBox(width: 6),
               _MiniBtn(
                 icon: Icons.close,
-                onTap: () => setState(() {
-                  _foto = null;
-                  _result = null;
-                }),
+                onTap: () {
+                  setState(() {
+                    _foto = null;
+                    _result = null;
+                    _error = null;
+                  });
+                },
               ),
             ],
           ),
@@ -173,7 +233,9 @@ class _DiagnosaScreenState extends State<DiagnosaScreen> {
       actions: [
         IconButton(
           icon: const Icon(Icons.history, size: 22),
-          onPressed: () => showSoon(context, 'Riwayat diagnosa segera hadir'),
+          onPressed: () {
+            showSoon(context, 'Riwayat diagnosa segera hadir');
+          },
         ),
       ],
       children: [
@@ -181,58 +243,104 @@ class _DiagnosaScreenState extends State<DiagnosaScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  const Text('Tanaman',
-                      style: TextStyle(fontSize: 11, color: AppColors.muted)),
-                  const SizedBox(width: 10),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: AppColors.greenSoft,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AppColors.green),
-                    ),
-                    child: const Text(
-                      _tanaman,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.green,
-                      ),
+              const Text(
+                'Pilih jenis tanaman',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: AppColors.muted,
+                ),
+              ),
+              const SizedBox(height: 6),
+              DropdownButtonFormField<String>(
+                value: _tanaman,
+                isExpanded: true,
+                decoration: InputDecoration(
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  filled: true,
+                  fillColor: AppColors.greenSoft,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(
+                      color: AppColors.green,
                     ),
                   ),
-                ],
+                ),
+                items: _daftarTanaman.map((tanaman) {
+                  return DropdownMenuItem<String>(
+                    value: tanaman,
+                    child: Text(
+                      tanaman,
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  );
+                }).toList(),
+                onChanged: _loading
+                    ? null
+                    : (value) {
+                        if (value == null) return;
+
+                        setState(() {
+                          _tanaman = value;
+                          _result = null;
+                          _error = null;
+                        });
+                      },
               ),
               const SizedBox(height: 12),
-              const Text('Foto tanaman',
-                  style: TextStyle(fontSize: 11, color: AppColors.muted)),
+              const Text(
+                'Foto tanaman',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: AppColors.muted,
+                ),
+              ),
               const SizedBox(height: 6),
               _photoSection(),
               const SizedBox(height: 12),
-              const Text('Keluhan gejala',
-                  style: TextStyle(fontSize: 11, color: AppColors.muted)),
+              const Text(
+                'Keluhan gejala',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: AppColors.muted,
+                ),
+              ),
               const SizedBox(height: 6),
               TextField(
                 controller: _controller,
                 maxLines: 4,
-                style: const TextStyle(fontSize: 12.5, height: 1.4),
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  height: 1.4,
+                ),
                 decoration: InputDecoration(
                   hintText:
                       'Contoh: daun bawah muncul bercak cokelat, lalu rontok sejak 3 hari lalu.',
-                  hintStyle: const TextStyle(fontSize: 12, color: AppColors.muted),
+                  hintStyle: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.muted,
+                  ),
                   isDense: true,
                   contentPadding: const EdgeInsets.all(12),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide:
-                        const BorderSide(color: AppColors.green, width: 1.2),
+                    borderSide: const BorderSide(
+                      color: AppColors.green,
+                      width: 1.2,
+                    ),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide:
-                        const BorderSide(color: AppColors.green, width: 1.8),
+                    borderSide: const BorderSide(
+                      color: AppColors.green,
+                      width: 1.8,
+                    ),
                   ),
                 ),
               ),
@@ -247,19 +355,28 @@ class _DiagnosaScreenState extends State<DiagnosaScreen> {
             style: FilledButton.styleFrom(
               backgroundColor: AppColors.green,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
             icon: _loading
                 ? const SizedBox(
                     width: 16,
                     height: 16,
                     child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Colors.white),
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
                   )
-                : const Icon(Icons.auto_awesome, size: 18),
+                : const Icon(
+                    Icons.auto_awesome,
+                    size: 18,
+                  ),
             label: Text(
               _loading ? 'Menganalisis...' : 'Analisis dengan AI',
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
         ),
@@ -268,16 +385,27 @@ class _DiagnosaScreenState extends State<DiagnosaScreen> {
           AppCard(
             child: Row(
               children: [
-                const Icon(Icons.error_outline, color: Colors.red, size: 20),
+                const Icon(
+                  Icons.error_outline,
+                  color: Colors.red,
+                  size: 20,
+                ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Text(_error!, style: const TextStyle(fontSize: 12)),
+                  child: Text(
+                    _error!,
+                    style: const TextStyle(fontSize: 12),
+                  ),
                 ),
-                TextButton(onPressed: _analyze, child: const Text('Coba lagi')),
+                TextButton(
+                  onPressed: _loading ? null : _analyze,
+                  child: const Text('Coba lagi'),
+                ),
               ],
             ),
           ),
-        if (_result != null && !_loading) _ResultCard(result: _result!),
+        if (_result != null && !_loading)
+          _ResultCard(result: _result!),
       ],
     );
   }
@@ -286,7 +414,11 @@ class _DiagnosaScreenState extends State<DiagnosaScreen> {
 class _MiniBtn extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
-  const _MiniBtn({required this.icon, required this.onTap});
+
+  const _MiniBtn({
+    required this.icon,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -298,7 +430,11 @@ class _MiniBtn extends StatelessWidget {
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.all(6),
-          child: Icon(icon, size: 16, color: Colors.white),
+          child: Icon(
+            icon,
+            size: 16,
+            color: Colors.white,
+          ),
         ),
       ),
     );
@@ -307,11 +443,15 @@ class _MiniBtn extends StatelessWidget {
 
 class _ResultCard extends StatelessWidget {
   final DiagnosaResult result;
-  const _ResultCard({required this.result});
+
+  const _ResultCard({
+    required this.result,
+  });
 
   @override
   Widget build(BuildContext context) {
     final steps = result.langkah;
+
     return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -319,11 +459,19 @@ class _ResultCard extends StatelessWidget {
           Row(
             children: [
               const Expanded(
-                child: Text('Dugaan penyakit',
-                    style: TextStyle(fontSize: 11, color: AppColors.muted)),
+                child: Text(
+                  'Dugaan penyakit',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: AppColors.muted,
+                  ),
+                ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 3,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.upSoft,
                   borderRadius: BorderRadius.circular(8),
@@ -340,18 +488,31 @@ class _ResultCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 4),
-          Text(result.penyakit,
-              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+          Text(
+            result.penyakit,
+            style: const TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
           const SizedBox(height: 4),
           Text(
             result.penjelasan,
             style: const TextStyle(
-                fontSize: 11.5, color: AppColors.muted, height: 1.4),
+              fontSize: 11.5,
+              color: AppColors.muted,
+              height: 1.4,
+            ),
           ),
           if (steps.isNotEmpty) ...[
             const SizedBox(height: 14),
-            const Text('Rekomendasi penanganan',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+            const Text(
+              'Rekomendasi penanganan',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
             const SizedBox(height: 8),
             for (var i = 0; i < steps.length; i++)
               Padding(
@@ -378,8 +539,13 @@ class _ResultCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: Text(steps[i],
-                          style: const TextStyle(fontSize: 12, height: 1.4)),
+                      child: Text(
+                        steps[i],
+                        style: const TextStyle(
+                          fontSize: 12,
+                          height: 1.4,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -390,32 +556,48 @@ class _ResultCard extends StatelessWidget {
             children: [
               Expanded(
                 child: OutlinedButton(
-                  onPressed: () => showSoon(context, 'Disimpan ke riwayat'),
+                  onPressed: () {
+                    showSoon(context, 'Disimpan ke riwayat');
+                  },
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.green,
-                    side: const BorderSide(color: AppColors.green),
+                    side: const BorderSide(
+                      color: AppColors.green,
+                    ),
                     minimumSize: const Size(0, 40),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10)),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
-                  child: const Text('Simpan ke riwayat',
-                      style:
-                          TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                  child: const Text(
+                    'Simpan ke riwayat',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: FilledButton(
-                  onPressed: () => showSoon(context, 'Dicatat ke log tanam'),
+                  onPressed: () {
+                    showSoon(context, 'Dicatat ke log tanam');
+                  },
                   style: FilledButton.styleFrom(
                     backgroundColor: AppColors.green,
                     minimumSize: const Size(0, 40),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10)),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
-                  child: const Text('Catat ke log',
-                      style:
-                          TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                  child: const Text(
+                    'Catat ke log',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -425,7 +607,10 @@ class _ResultCard extends StatelessWidget {
             child: Text(
               'Hasil AI bersifat panduan awal. Konsultasikan dengan penyuluh pertanian untuk kasus berat.',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 9.5, color: AppColors.muted),
+              style: TextStyle(
+                fontSize: 9.5,
+                color: AppColors.muted,
+              ),
             ),
           ),
         ],
