@@ -406,11 +406,6 @@ class _SimulasiPenyiramanScreenState extends State<SimulasiPenyiramanScreen> {
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: const Text('Cabai rawit',
-                    style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.green)),
               ),
             ),
 
