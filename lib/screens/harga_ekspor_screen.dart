@@ -3,6 +3,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../services/harga_ekspor_service.dart';
 
+// TAMBAH: pilihan filter perubahan harga
+enum PriceFilter { semua, naik, turun }
+
 class HargaEksporScreen extends StatefulWidget {
   const HargaEksporScreen({super.key});
 
@@ -23,17 +26,54 @@ class _HargaEksporScreenState extends State<HargaEksporScreen> {
   String? _errorMessage;
   String? _ratesError;
   String _query = '';
+  PriceFilter _filter = PriceFilter.semua; // TAMBAH
 
   late Timer _timer;
   DateTime _utcNow = DateTime.now().toUtc();
 
+  // UBAH: suggestions ikut dipengaruhi filter naik/turun
   List<CommodityPrice> get _matches {
     final query = _query.trim().toLowerCase();
     if (query.isEmpty) return <CommodityPrice>[];
     return _allCommodities
         .where((item) => item.name.toLowerCase().contains(query))
+        .where(_passesFilter)
         .take(8)
         .toList();
+  }
+
+  // TAMBAH: persentase perubahan harga periode terbaru vs sebelumnya
+  double? _changePct(CommodityPrice item) {
+    final values = item.historyUsdPerKg;
+    if (values.length < 2) return null;
+    final previous = values[values.length - 2];
+    if (previous == 0) return null;
+    return ((item.usdPerKg - previous) / previous) * 100;
+  }
+
+  // TAMBAH: apakah komoditas lolos filter yang aktif
+  bool _passesFilter(CommodityPrice item) {
+    if (_filter == PriceFilter.semua) return true;
+    final change = _changePct(item);
+    if (change == null) return false;
+    return _filter == PriceFilter.naik ? change > 0 : change < 0;
+  }
+
+  // TAMBAH: format persen, contoh +3,5%
+  String _formatPct(double value) {
+    final sign = value > 0 ? '+' : '';
+    return '$sign${value.toStringAsFixed(1).replaceAll('.', ',')}%';
+  }
+
+  // TAMBAH: ganti filter, reset pilihan & pencarian
+  void _setFilter(PriceFilter filter) {
+    setState(() {
+      _filter = filter;
+      _selectedCommodity = null;
+      _query = '';
+      _searchController.clear();
+    });
+    _searchFocus.unfocus();
   }
 
   @override
@@ -123,8 +163,10 @@ class _HargaEksporScreenState extends State<HargaEksporScreen> {
       return;
     }
 
+    // UBAH: hasil pencarian ikut dipengaruhi filter
     final matches = _allCommodities
         .where((item) => item.name.toLowerCase().contains(query))
+        .where(_passesFilter)
         .toList();
 
     setState(() {
@@ -134,10 +176,13 @@ class _HargaEksporScreenState extends State<HargaEksporScreen> {
 
     if (matches.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
-            'Komoditas tidak ditemukan di data Kemendag. '
-            'Coba kata kunci yang lebih singkat.',
+            _filter == PriceFilter.semua
+                ? 'Komoditas tidak ditemukan di data Kemendag. '
+                    'Coba kata kunci yang lebih singkat.'
+                : 'Tidak ada komoditas yang cocok dengan filter '
+                    '"${_filter == PriceFilter.naik ? 'Naik' : 'Turun'}".',
           ),
         ),
       );
@@ -216,7 +261,7 @@ class _HargaEksporScreenState extends State<HargaEksporScreen> {
                 onChanged: (value) => setState(() => _query = value),
                 onSubmitted: (_) => _submitSearch(),
                 decoration: InputDecoration(
-                  hintText: 'Contoh: kopi, cocoa, sugar...',
+                  hintText: 'Contoh: coffee, cocoa, sugar...',
                   prefixIcon: const Icon(Icons.search),
                   suffixIcon: IconButton(
                     tooltip: 'Cari',
@@ -228,6 +273,9 @@ class _HargaEksporScreenState extends State<HargaEksporScreen> {
                   ),
                 ),
               ),
+              // TAMBAH: chip filter naik / turun
+              const SizedBox(height: 10),
+              _buildFilterChips(theme),
               if (_query.trim().isNotEmpty && _searchFocus.hasFocus)
                 _buildSuggestions(),
               const SizedBox(height: 16),
@@ -273,6 +321,12 @@ class _HargaEksporScreenState extends State<HargaEksporScreen> {
                 _buildPriceCard(commodity, theme),
                 const SizedBox(height: 12),
                 _buildCurrencyCard(commodity, rates, theme),
+              ] else if (_filter != PriceFilter.semua &&
+                  _query.trim().isEmpty &&
+                  _errorMessage == null) ...[
+                // TAMBAH: daftar komoditas yang naik / turun
+                const SizedBox(height: 12),
+                _buildFilteredList(theme),
               ] else if (_query.trim().isNotEmpty &&
                   !_loading &&
                   _errorMessage == null) ...[
@@ -307,6 +361,137 @@ class _HargaEksporScreenState extends State<HargaEksporScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  // TAMBAH
+  Widget _buildFilterChips(ThemeData theme) {
+    Widget chip({
+      required PriceFilter value,
+      required String label,
+      IconData? icon,
+      Color? color,
+    }) {
+      final selected = _filter == value;
+      final activeColor = color ?? theme.colorScheme.primary;
+      return ChoiceChip(
+        selected: selected,
+        showCheckmark: false,
+        avatar: icon == null
+            ? null
+            : Icon(
+                icon,
+                size: 16,
+                color: selected ? Colors.white : activeColor,
+              ),
+        label: Text(label),
+        labelStyle: TextStyle(
+          fontWeight: FontWeight.w700,
+          color: selected ? Colors.white : null,
+        ),
+        selectedColor: activeColor,
+        onSelected: (_) => _setFilter(value),
+      );
+    }
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 4,
+      children: [
+        chip(value: PriceFilter.semua, label: 'Semua'),
+        chip(
+          value: PriceFilter.naik,
+          label: 'Harga Naik',
+          icon: Icons.trending_up,
+          color: Colors.green.shade700,
+        ),
+        chip(
+          value: PriceFilter.turun,
+          label: 'Harga Turun',
+          icon: Icons.trending_down,
+          color: Colors.red.shade700,
+        ),
+      ],
+    );
+  }
+
+  // TAMBAH
+  Widget _buildFilteredList(ThemeData theme) {
+    if (_loading && _allCommodities.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final isUp = _filter == PriceFilter.naik;
+    final items = _allCommodities.where(_passesFilter).toList()
+      ..sort((a, b) {
+        final ca = _changePct(a)!;
+        final cb = _changePct(b)!;
+        return isUp ? cb.compareTo(ca) : ca.compareTo(cb);
+      });
+
+    if (items.isEmpty) {
+      return _InfoCard(
+        child: Text(
+          isUp
+              ? 'Tidak ada komoditas yang harganya naik pada periode terbaru.'
+              : 'Tidak ada komoditas yang harganya turun pada periode terbaru.',
+        ),
+      );
+    }
+
+    final color = isUp ? Colors.green.shade700 : Colors.red.shade700;
+    const maxItems = 20;
+    final shown = items.take(maxItems).toList();
+
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
+            child: Text(
+              isUp
+                  ? '${items.length} komoditas harganya naik'
+                  : '${items.length} komoditas harganya turun',
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          for (final item in shown)
+            ListTile(
+              dense: true,
+              leading: Icon(
+                isUp ? Icons.trending_up : Icons.trending_down,
+                color: color,
+              ),
+              title: Text(item.name),
+              subtitle: Text(
+                '${_formatUsd(item.usdPerKg)} / kg · ${item.period}',
+              ),
+              trailing: Text(
+                _formatPct(_changePct(item)!),
+                style: TextStyle(
+                  color: color,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              onTap: () => _selectCommodity(item),
+            ),
+          if (items.length > maxItems)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
+              child: Text(
+                'Menampilkan $maxItems teratas dari ${items.length}. '
+                'Gunakan kolom pencarian untuk mempersempit.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
