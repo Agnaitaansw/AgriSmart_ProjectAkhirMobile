@@ -81,17 +81,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
             ),
             const SizedBox(height: 20),
 
-            // Ringkasan Statistik Lahan
-            Row(
-              children: [
-                _buildStatBox('3', 'Lahan'),
-                const SizedBox(width: 8),
-                _buildStatBox('12', 'Blok log'),
-                const SizedBox(width: 8),
-                _buildStatBox('5', 'Diagnosa'),
-              ],
-            ),
-            const SizedBox(height: 18),
+    
 
             // Setelan Akun & Fitur
             Container(

@@ -21,25 +21,6 @@ class _DiagnosaScreenState extends State<DiagnosaScreen> {
   final _picker = ImagePicker();
   final _service = DiagnosaService();
 
-  String _tanaman = 'Cabai rawit';
-
-  final List<String> _daftarTanaman = [
-    'Cabai rawit',
-    'Cabai merah',
-    'Tomat',
-    'Terong',
-    'Padi',
-    'Jagung',
-    'Kangkung',
-    'Bayam',
-    'Sawi',
-    'Mentimun',
-    'Semangka',
-    'Melon',
-    'Kedelai',
-    'Tanaman lainnya',
-  ];
-
   File? _foto;
   bool _loading = false;
   DiagnosaResult? _result;
@@ -121,7 +102,7 @@ class _DiagnosaScreenState extends State<DiagnosaScreen> {
 
     try {
       final r = await _service.analisis(
-        tanaman: _tanaman,
+        tanaman: '',
         keluhan: keluhan,
         foto: _foto,
       );
@@ -176,7 +157,7 @@ class _DiagnosaScreenState extends State<DiagnosaScreen> {
               ),
               SizedBox(height: 6),
               Text(
-                'Unggah foto daun/tanaman (opsional)',
+                'Tambah foto tanaman (opsional)',
                 style: TextStyle(
                   fontSize: 11,
                   color: AppColors.green,
@@ -244,57 +225,6 @@ class _DiagnosaScreenState extends State<DiagnosaScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Pilih jenis tanaman',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: AppColors.muted,
-                ),
-              ),
-              const SizedBox(height: 6),
-              DropdownButtonFormField<String>(
-                value: _tanaman,
-                isExpanded: true,
-                decoration: InputDecoration(
-                  isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
-                  filled: true,
-                  fillColor: AppColors.greenSoft,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(
-                      color: AppColors.green,
-                    ),
-                  ),
-                ),
-                items: _daftarTanaman.map((tanaman) {
-                  return DropdownMenuItem<String>(
-                    value: tanaman,
-                    child: Text(
-                      tanaman,
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                  );
-                }).toList(),
-                onChanged: _loading
-                    ? null
-                    : (value) {
-                        if (value == null) return;
-
-                        setState(() {
-                          _tanaman = value;
-                          _result = null;
-                          _error = null;
-                        });
-                      },
-              ),
-              const SizedBox(height: 12),
-              const Text(
                 'Foto tanaman',
                 style: TextStyle(
                   fontSize: 11,
@@ -321,7 +251,7 @@ class _DiagnosaScreenState extends State<DiagnosaScreen> {
                 ),
                 decoration: InputDecoration(
                   hintText:
-                      'Contoh: daun bawah muncul bercak cokelat, lalu rontok sejak 3 hari lalu.',
+                      'Ceritakan gejala tanaman, misalnya daun menguning sejak 3 hari lalu (opsional jika sudah menambahkan foto).',
                   hintStyle: const TextStyle(
                     fontSize: 12,
                     color: AppColors.muted,
