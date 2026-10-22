@@ -1,10 +1,8 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:math' as math;
-import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:sensors_plus/sensors_plus.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import '../services/blockchain_service.dart';
 import '../utils/constants.dart';
 import '../widgets/auth_widgets.dart';
 import '../widgets/common.dart';
@@ -35,8 +33,6 @@ class SimulasiPenyiramanScreen extends StatefulWidget {
 }
 
 class _SimulasiPenyiramanScreenState extends State<SimulasiPenyiramanScreen> {
-  final _supabase = Supabase.instance.client;
-
   // Logic Sensor
   StreamSubscription<AccelerometerEvent>? _accelSubscription;
   double _x = 0.0, _y = 0.0, _z = 0.0;
@@ -118,7 +114,11 @@ class _SimulasiPenyiramanScreenState extends State<SimulasiPenyiramanScreen> {
 
       // Efek samping (dialog & log) dijalankan di luar setState
       if (targetTercapai) {
-        _catatKeBlockchain(2, 'Menyiram tanaman mini game', 'pemasukan');
+        BlockchainService.catat(
+          poin: 2,
+          deskripsi: 'Menyiram tanaman mini game',
+          tipe: BlockchainService.tipePemasukan,
+        );
         _tampilkanPopupBerhasil();
       }
     });
@@ -238,8 +238,11 @@ class _SimulasiPenyiramanScreenState extends State<SimulasiPenyiramanScreen> {
       _tokoTerpilihId = null;
     });
 
-    _catatKeBlockchain(
-        item.harga, 'Membeli penyiram tanaman (${item.nama})', 'pengeluaran');
+    BlockchainService.catat(
+      poin: item.harga,
+      deskripsi: 'Membeli penyiram tanaman (${item.nama})',
+      tipe: BlockchainService.tipePengeluaran,
+    );
     _snack('Berhasil membeli ${item.nama}! Tekan "Gunakan" untuk memakainya.');
   }
 
@@ -249,47 +252,6 @@ class _SimulasiPenyiramanScreenState extends State<SimulasiPenyiramanScreen> {
     if (!item.dimiliki) return;
     setState(() => _aktifId = item.id);
     _snack('${item.nama} sekarang dipakai');
-  }
-
-  // Pencatatan ke "blockchain" (Supabase)
-  Future<void> _catatKeBlockchain(
-      int poin, String deskripsi, String tipe) async {
-    try {
-      // pemasukan = positif, pengeluaran = negatif (kolom points_amount: int4)
-      final jumlah = tipe == 'pemasukan' ? poin : -poin;
-
-      final now = DateTime.now();
-      String dua(int n) => n.toString().padLeft(2, '0');
-      final waktu =
-          '${dua(now.day)}/${dua(now.month)}/${now.year} ${dua(now.hour)}:${dua(now.minute)}';
-
-      // Ambil hash terakhir sebagai previous_hash (blok pertama pakai 64 nol)
-      final terakhir = await _supabase
-          .from('blockchain_logs')
-          .select('current_hash')
-          .order('id', ascending: false)
-          .limit(1)
-          .maybeSingle();
-      final previousHash =
-          (terakhir?['current_hash'] as String?) ?? ('0' * 64);
-
-      // current_hash = SHA-256 dari isi blok + hash sebelumnya
-      final currentHash = sha256
-          .convert(utf8.encode('$previousHash|$deskripsi|$jumlah|$waktu'))
-          .toString();
-
-      await _supabase.from('blockchain_logs').insert({
-        // 'user_id': ...,  // kolom nullable; isi dengan id user yang login (int8) kalau ada
-        'action_type': deskripsi,
-        'points_amount': jumlah,
-        'timestamp': waktu,
-        'previous_hash': previousHash,
-        'current_hash': currentHash,
-        'synced': 1,
-      });
-    } catch (e) {
-      debugPrint('Gagal catat blockchain: $e');
-    }
   }
 
   @override
