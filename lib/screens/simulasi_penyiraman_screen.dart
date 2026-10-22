@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:sensors_plus/sensors_plus.dart';
+import '../services/notification_service.dart'; // TAMBAH
 import '../services/penyiraman_repository.dart';
 import '../services/sesi_user.dart';
 import '../utils/constants.dart';
@@ -53,6 +54,10 @@ class _SimulasiPenyiramanScreenState extends State<SimulasiPenyiramanScreen> {
   int _poinUser = 0;
   bool _sudahDisiramHariIni = false;
 
+  // TAMBAH: status pengingat harian jam 09.00
+  bool _pengingatAktif = false;
+  bool _pengingatMemproses = false;
+
   final List<Penyiram> _daftarPenyiram = [
     Penyiram(
         id: 0,
@@ -80,8 +85,54 @@ class _SimulasiPenyiramanScreenState extends State<SimulasiPenyiramanScreen> {
   void initState() {
     super.initState();
     _muatData();
+    _muatStatusPengingat(); // TAMBAH
     _startListeningSensors();
     _startTimer();
+  }
+
+  // TAMBAH: cek apakah pengingat harian sudah terjadwal di sistem
+  Future<void> _muatStatusPengingat() async {
+    try {
+      final aktif = await NotificationService.instance.isWateringScheduled();
+      if (!mounted) return;
+      setState(() => _pengingatAktif = aktif);
+    } catch (e) {
+      debugPrint('Gagal cek status pengingat: $e');
+    }
+  }
+
+  // TAMBAH: nyalakan / matikan pengingat harian jam 09.00
+  Future<void> _ubahPengingat(bool nyala) async {
+    if (_pengingatMemproses) return;
+    setState(() => _pengingatMemproses = true);
+
+    try {
+      if (nyala) {
+        final izin = await NotificationService.instance.requestPermissions();
+        if (!izin) {
+          if (mounted) {
+            _snack('Izin notifikasi ditolak. Aktifkan dulu di pengaturan HP.');
+          }
+          return;
+        }
+        await NotificationService.instance.scheduleDailyWatering(hour: 9);
+        if (mounted) {
+          setState(() => _pengingatAktif = true);
+          _snack('Pengingat aktif: setiap hari jam 09.00');
+        }
+      } else {
+        await NotificationService.instance.cancelWatering();
+        if (mounted) {
+          setState(() => _pengingatAktif = false);
+          _snack('Pengingat dimatikan');
+        }
+      }
+    } catch (e) {
+      debugPrint('Gagal mengubah pengingat: $e');
+      if (mounted) _snack('Gagal mengatur pengingat');
+    } finally {
+      if (mounted) setState(() => _pengingatMemproses = false);
+    }
   }
 
   // Ambil poin, teko, dan status "sudah disiram hari ini" dari database
@@ -362,6 +413,10 @@ class _SimulasiPenyiramanScreenState extends State<SimulasiPenyiramanScreen> {
             _buildSensorCard(),
             const SizedBox(height: 16),
 
+            // TAMBAH: pengingat penyiraman harian
+            _buildPengingatCard(),
+            const SizedBox(height: 16),
+
             // Toko: Beli Penyiram Tanaman
             _buildTokoSection(),
 
@@ -370,6 +425,44 @@ class _SimulasiPenyiramanScreenState extends State<SimulasiPenyiramanScreen> {
             _buildPilihSection(),
           ],
         ),
+      ),
+    );
+  }
+
+  // ───────────────────────── PENGINGAT ─────────────────────────
+  // TAMBAH
+  Widget _buildPengingatCard() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.notifications_active_outlined,
+              size: 22, color: AppColors.green),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Pengingat harian jam 09.00',
+                    style:
+                        TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                SizedBox(height: 2),
+                Text('Notifikasi untuk menyiram tanaman di game.',
+                    style: TextStyle(fontSize: 10, color: AppColors.muted)),
+              ],
+            ),
+          ),
+          Switch(
+            value: _pengingatAktif,
+            onChanged: _pengingatMemproses ? null : _ubahPengingat,
+            activeColor: AppColors.green,
+          ),
+        ],
       ),
     );
   }

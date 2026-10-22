@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'screens/home_page.dart';
 import 'screens/login_page.dart';
 import 'services/auth_service.dart';
+import 'services/notification_service.dart'; // TAMBAH
 import 'utils/constants.dart';
 
 Future<void> main() async {
@@ -15,6 +16,15 @@ Future<void> main() async {
     url: 'https://zjhvszksxuobfaxolthf.supabase.co',
     anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpqaHZzemtzeHVvYmZheG9sdGhmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI1NTg3NzEsImV4cCI6MjEwODEzNDc3MX0.HG5qhxyCHHXTvQ3oiAgbQt8Ra99sGrV7pade5gq4LAI',
   );
+
+  // TAMBAH: siapkan notifikasi (zona waktu + plugin).
+  // Dibungkus try/catch supaya kalau gagal, aplikasi tetap bisa dibuka.
+  try {
+    await NotificationService.instance.init();
+  } catch (e) {
+    debugPrint('Gagal inisialisasi notifikasi: $e');
+  }
+
   // Cek session tersimpan: kalau masih valid, langsung ke Home.
   final loggedIn = await AuthService.instance.hasValidSession();
   runApp(AgriSmartApp(startLoggedIn: loggedIn));

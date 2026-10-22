@@ -42,7 +42,7 @@ class PlantManager {
       iOS: DarwinInitializationSettings(),
     );
 
-    await _notifications.initialize(settings);
+    await _notifications.initialize(settings: settings); // UBAH
 
     final android = _notifications
         .resolvePlatformSpecificImplementation<
@@ -144,7 +144,7 @@ class PlantManager {
     );
 
     await initializeNotifications();
-    await _notifications.cancel(_notificationId(id));
+    await _notifications.cancel(id: _notificationId(id)); // UBAH
 
     unawaited(sinkronkan(userId));
   }
@@ -231,7 +231,7 @@ class PlantManager {
         // pengingat lama memakai id dari teks; batalkan, lalu dijadwalkan ulang
         final idLama = m['id'];
         if (idLama is String) {
-          await _notifications.cancel(idLama.hashCode & 0x7fffffff);
+          await _notifications.cancel(id: idLama.hashCode & 0x7fffffff); // UBAH
         }
       }
 
@@ -285,12 +285,13 @@ class PlantManager {
   Future<void> _scheduleWateringReminder(int plantId, String name) async {
     await initializeNotifications();
 
+    // UBAH: semua parameter sekarang bernama
     await _notifications.periodicallyShow(
-      _notificationId(plantId),
-      'Jangan lupa menyiram $name 🌱',
-      'Saatnya menyiram tanaman $name.',
-      RepeatInterval.daily,
-      const NotificationDetails(
+      id: _notificationId(plantId),
+      title: 'Jangan lupa menyiram $name 🌱',
+      body: 'Saatnya menyiram tanaman $name.',
+      repeatInterval: RepeatInterval.daily,
+      notificationDetails: const NotificationDetails(
         android: AndroidNotificationDetails(
           'agri_smart_watering',
           'Pengingat Penyiraman Tanaman',
