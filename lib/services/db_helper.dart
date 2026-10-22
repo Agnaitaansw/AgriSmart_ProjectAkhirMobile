@@ -16,7 +16,7 @@ class DbHelper {
     final path = join(await getDatabasesPath(), 'agrismart.db');
     return openDatabase(
       path,
-      version: 2,
+      version: 4,
       onCreate: (db, _) async {
         await db.execute('''
           CREATE TABLE users (
@@ -32,29 +32,47 @@ class DbHelper {
         ''');
         await _buatTabelGame(db);
       },
-      // Versi 1 -> 2: tambah tabel untuk mini game penyiraman
+      // Versi 1 -> 4: buat semua tabel baru.
+      // Versi 2/3 -> 4: user_plants versi lama dibuang dan dibuat ulang
+      // (sekarang untuk tanaman pilihan user); versi 2 juga mendapat kolom
+      // last_watered_at di user_rewards (mini game).
       onUpgrade: (db, oldVersion, _) async {
-        if (oldVersion < 2) await _buatTabelGame(db);
+        if (oldVersion == 2) {
+          await db.execute(
+              'ALTER TABLE user_rewards ADD COLUMN last_watered_at TEXT');
+        }
+        if (oldVersion >= 2) {
+          await db.execute('DROP TABLE IF EXISTS user_plants');
+        }
+        await _buatTabelGame(db);
       },
     );
   }
 
-  /// Tabel untuk mini game penyiraman, poin, teko, dan riwayat blockchain.
+  /// Tabel tanaman user, mini game (poin + teko), dan riwayat blockchain.
   Future<void> _buatTabelGame(Database db) async {
+    // Tanaman yang dipilih user (Tanaman Saya)
     await db.execute('''
       CREATE TABLE IF NOT EXISTS user_plants (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER NOT NULL UNIQUE,
-        last_watered_at TEXT NOT NULL,
-        synced INTEGER NOT NULL DEFAULT 0
+        user_id INTEGER NOT NULL,
+        plant_name TEXT NOT NULL,
+        planted_at TEXT NOT NULL,
+        watering_every_days INTEGER NOT NULL DEFAULT 1,
+        harvest_days INTEGER NOT NULL DEFAULT 90,
+        deleted INTEGER NOT NULL DEFAULT 0, -- 1 = dihapus user, menunggu dihapus di Supabase
+        synced INTEGER NOT NULL DEFAULT 0,
+        UNIQUE (user_id, plant_name)
       )
     ''');
+    // Mini game (berdiri sendiri): koin, total siram, terakhir menyiram
     await db.execute('''
       CREATE TABLE IF NOT EXISTS user_rewards (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER NOT NULL UNIQUE,
         total_coins INTEGER NOT NULL DEFAULT 0,
         total_waterings INTEGER NOT NULL DEFAULT 0,
+        last_watered_at TEXT,
         synced INTEGER NOT NULL DEFAULT 0
       )
     ''');

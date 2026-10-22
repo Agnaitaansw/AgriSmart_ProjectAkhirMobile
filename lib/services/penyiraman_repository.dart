@@ -54,8 +54,6 @@ class PenyiramanRepository {
     final reward = (await db.query('user_rewards',
             where: 'user_id = ?', whereArgs: [userId], limit: 1))
         .first;
-    final plant = await db.query('user_plants',
-        where: 'user_id = ?', whereArgs: [userId], limit: 1);
     final cans = await db
         .query('user_watering_cans', where: 'user_id = ?', whereArgs: [userId]);
 
@@ -69,9 +67,8 @@ class PenyiramanRepository {
     return StatusPenyiraman(
       koin: reward['total_coins'] as int,
       totalPenyiraman: reward['total_waterings'] as int,
-      terakhirDisiram: plant.isEmpty
-          ? null
-          : DateTime.tryParse(plant.first['last_watered_at'] as String),
+      terakhirDisiram:
+          DateTime.tryParse((reward['last_watered_at'] as String?) ?? ''),
       tekoDimiliki: dimiliki,
       tekoAktif: aktif.isEmpty ? 0 : aktif.first['can_id'] as int,
     );
@@ -91,20 +88,10 @@ class PenyiramanRepository {
       await _pastikanReward(txn, userId);
       await txn.rawUpdate(
         'UPDATE user_rewards SET total_coins = total_coins + ?, '
-        'total_waterings = total_waterings + 1, synced = 0 WHERE user_id = ?',
-        [hadiahMenyiram, userId],
+        'total_waterings = total_waterings + 1, last_watered_at = ?, '
+        'synced = 0 WHERE user_id = ?',
+        [hadiahMenyiram, sekarang, userId],
       );
-
-      final ada = await txn.query('user_plants',
-          where: 'user_id = ?', whereArgs: [userId], limit: 1);
-      if (ada.isEmpty) {
-        await txn.insert('user_plants',
-            {'user_id': userId, 'last_watered_at': sekarang, 'synced': 0});
-      } else {
-        await txn.update('user_plants',
-            {'last_watered_at': sekarang, 'synced': 0},
-            where: 'user_id = ?', whereArgs: [userId]);
-      }
 
       final r = await txn.query('user_rewards',
           columns: ['total_coins'],
@@ -197,22 +184,11 @@ class PenyiramanRepository {
           'user_id': r['user_id'],
           'total_coins': r['total_coins'],
           'total_waterings': r['total_waterings'],
+          'last_watered_at': r['last_watered_at'],
           'synced': 1,
         }, onConflict: 'user_id');
         await db.update('user_rewards', {'synced': 1},
             where: 'id = ?', whereArgs: [r['id']]);
-      }
-
-      final plants = await db.query('user_plants',
-          where: 'user_id = ? AND synced = 0', whereArgs: [userId]);
-      for (final p in plants) {
-        await _supabase.from('user_plants').upsert({
-          'user_id': p['user_id'],
-          'last_watered_at': p['last_watered_at'],
-          'synced': 1,
-        }, onConflict: 'user_id');
-        await db.update('user_plants', {'synced': 1},
-            where: 'id = ?', whereArgs: [p['id']]);
       }
 
       final cans = await db.query('user_watering_cans',
@@ -274,24 +250,7 @@ class PenyiramanRepository {
                 'user_id': userId,
                 'total_coins': r['total_coins'] ?? 0,
                 'total_waterings': r['total_waterings'] ?? 0,
-                'synced': 1,
-              },
-              conflictAlgorithm: ConflictAlgorithm.replace);
-        }
-      }
-
-      if (await kosong('user_plants')) {
-        final p = await _supabase
-            .from('user_plants')
-            .select()
-            .eq('user_id', userId)
-            .maybeSingle();
-        if (p != null && p['last_watered_at'] != null) {
-          await db.insert(
-              'user_plants',
-              {
-                'user_id': userId,
-                'last_watered_at': p['last_watered_at'],
+                'last_watered_at': r['last_watered_at'],
                 'synced': 1,
               },
               conflictAlgorithm: ConflictAlgorithm.replace);

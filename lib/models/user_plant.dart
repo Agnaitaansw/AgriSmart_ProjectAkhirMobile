@@ -1,12 +1,14 @@
+/// Tanaman yang dipilih user (tabel user_plants).
 class UserPlant {
-  final String id;
+  /// Id di database; null untuk tanaman yang belum disimpan.
+  final int? id;
   final String name;
   final DateTime plantedAt;
   final int wateringEveryDays;
   final int harvestDays;
 
   const UserPlant({
-    required this.id,
+    this.id,
     required this.name,
     required this.plantedAt,
     required this.wateringEveryDays,
@@ -16,19 +18,20 @@ class UserPlant {
   DateTime get nextWatering => plantedAt.add(Duration(days: wateringEveryDays));
   DateTime get estimatedHarvest => plantedAt.add(Duration(days: harvestDays));
 
-  Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'plantedAt': plantedAt.toIso8601String(),
-        'wateringEveryDays': wateringEveryDays,
-        'harvestDays': harvestDays,
+  /// Untuk disimpan ke SQLite (kolom user_plants).
+  Map<String, Object?> toMap(int userId) => {
+        'user_id': userId,
+        'plant_name': name,
+        'planted_at': plantedAt.toIso8601String(),
+        'watering_every_days': wateringEveryDays,
+        'harvest_days': harvestDays,
       };
 
-  factory UserPlant.fromJson(Map<String, dynamic> json) => UserPlant(
-        id: json['id'] as String,
-        name: json['name'] as String,
-        plantedAt: DateTime.parse(json['plantedAt'] as String),
-        wateringEveryDays: json['wateringEveryDays'] as int,
-        harvestDays: json['harvestDays'] as int,
+  factory UserPlant.fromMap(Map<String, Object?> map) => UserPlant(
+        id: map['id'] as int?,
+        name: map['plant_name'] as String,
+        plantedAt: DateTime.parse(map['planted_at'] as String),
+        wateringEveryDays: map['watering_every_days'] as int,
+        harvestDays: map['harvest_days'] as int,
       );
 }

@@ -325,7 +325,7 @@ class _TanamanDetailScreenState extends State<TanamanDetailScreen> {
 
     try {
       final plant = UserPlant(
-        id: '${widget.crop.name}_${DateTime.now().millisecondsSinceEpoch}',
+        
         name: widget.crop.name,
         plantedAt: DateTime.now(),
         wateringEveryDays: _info.wateringEveryDays,
