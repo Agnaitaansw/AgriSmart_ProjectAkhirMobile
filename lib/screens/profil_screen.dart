@@ -7,6 +7,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../models/user_model.dart';
+import '../services/auth_service.dart';
 import '../utils/constants.dart';
 import '../widgets/common.dart';
 import 'logout_dialog.dart';
@@ -27,6 +29,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
   bool _notiEnabled = true;
   bool _loading = true;
   String? _photoPath;
+  UserModel? _user;
 
   String get _userKey {
     final userId = Supabase.instance.client.auth.currentUser?.id;
@@ -34,6 +37,10 @@ class _ProfilScreenState extends State<ProfilScreen> {
   }
 
   String get _displayName {
+    final appName = _user?.name;
+    if (appName != null && appName.trim().isNotEmpty) {
+      return appName.trim();
+    }
     final user = Supabase.instance.client.auth.currentUser;
     final metadataName = user?.userMetadata?['full_name'] ??
         user?.userMetadata?['name'];
@@ -47,8 +54,14 @@ class _ProfilScreenState extends State<ProfilScreen> {
     return 'Pengguna AgriSmart';
   }
 
-  String get _email =>
-      Supabase.instance.client.auth.currentUser?.email ?? 'Email belum tersedia';
+  String get _email {
+    final appEmail = _user?.email;
+    if (appEmail != null && appEmail.trim().isNotEmpty) {
+      return appEmail.trim();
+    }
+    return Supabase.instance.client.auth.currentUser?.email ??
+        'Email belum tersedia';
+  }
 
   String get _bioPreferenceKey => 'biometric_enabled_$_userKey';
   String get _photoPreferenceKey => 'profile_photo_$_userKey';
@@ -62,8 +75,10 @@ class _ProfilScreenState extends State<ProfilScreen> {
 
   Future<void> _loadPreferences() async {
     final prefs = await SharedPreferences.getInstance();
+    final appUser = await AuthService.instance.currentUser();
     if (!mounted) return;
     setState(() {
+      _user = appUser;
       _bioEnabled = prefs.getBool(_bioPreferenceKey) ?? false;
       _notiEnabled = prefs.getBool(_notificationPreferenceKey) ?? true;
       _photoPath = prefs.getString(_photoPreferenceKey);
