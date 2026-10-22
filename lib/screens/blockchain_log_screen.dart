@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import '../services/blockchain_service.dart';
+import '../services/sesi_user.dart';
 import '../utils/constants.dart';
 import '../widgets/common.dart';
 
@@ -11,7 +13,6 @@ class BlockchainLogScreen extends StatefulWidget {
 }
 
 class _BlockchainLogScreenState extends State<BlockchainLogScreen> {
-  final _supabase = Supabase.instance.client;
   bool _isLoading = true;
   List<Map<String, dynamic>> _logs = [];
   String? _errorMessage;
@@ -29,18 +30,21 @@ class _BlockchainLogScreenState extends State<BlockchainLogScreen> {
         _errorMessage = null;
       });
 
-      // Mengambil data dari tabel blockchain_logs sesuai kolom di database
-      final response = await _supabase
-          .from('blockchain_logs')
-          .select()
-          .order('id', ascending: false);
+      // Baca dari SQLite (milik user yang login), jadi tetap tampil saat offline
+      final response =
+          await BlockchainService.ambilRiwayat(await idUserLogin());
 
+      // Kirim baris yang belum terkirim ke Supabase (kalau ada koneksi)
+      unawaited(BlockchainService.sinkronkan());
+
+      if (!mounted) return;
       setState(() {
-        _logs = List<Map<String, dynamic>>.from(response);
+        _logs = response;
         _isLoading = false;
       });
     } catch (e) {
-      debugPrint('ERROR SUPABASE BLOCKCHAIN: $e');
+      debugPrint('ERROR BLOCKCHAIN LOG: $e');
+      if (!mounted) return;
       setState(() {
         _errorMessage = 'Gagal memuat log: ${e.toString()}';
         _isLoading = false;

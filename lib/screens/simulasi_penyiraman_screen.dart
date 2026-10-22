@@ -2,9 +2,9 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:sensors_plus/sensors_plus.dart';
-import '../services/blockchain_service.dart';
+import '../services/penyiraman_repository.dart';
+import '../services/sesi_user.dart';
 import '../utils/constants.dart';
-import '../widgets/auth_widgets.dart';
 import '../widgets/common.dart';
 
 /// Data alat penyiram. id 0 = teko bawaan (gratis, sudah dimiliki).
@@ -45,8 +45,12 @@ class _SimulasiPenyiramanScreenState extends State<SimulasiPenyiramanScreen> {
   bool _isWatering = false;
   Timer? _gameTimer;
 
+  // Data tersimpan (SQLite + Supabase) lewat repository
+  final _repo = PenyiramanRepository();
+  bool _memuat = true;
+
   // Poin & Toko Penyiram
-  int _poinUser = 10;
+  int _poinUser = 0;
   bool _sudahDisiramHariIni = false;
 
   final List<Penyiram> _daftarPenyiram = [
@@ -75,14 +79,53 @@ class _SimulasiPenyiramanScreenState extends State<SimulasiPenyiramanScreen> {
   @override
   void initState() {
     super.initState();
+    _muatData();
     _startListeningSensors();
     _startTimer();
+  }
+
+  // Ambil poin, teko, dan status "sudah disiram hari ini" dari database
+  Future<void> _muatData() async {
+    // Tunggu frame pertama selesai supaya snackbar aman dipakai kalau gagal
+    await Future<void>.delayed(Duration.zero);
+    try {
+      final s = await _repo.muat(await idUserLogin());
+      if (!mounted) return;
+      setState(() {
+        _poinUser = s.koin;
+        _sudahDisiramHariIni = s.sudahDisiramHariIni;
+        for (final p in _daftarPenyiram) {
+          p.dimiliki = p.id == 0 || s.tekoDimiliki.contains(p.id);
+        }
+        _aktifId = _daftarPenyiram.any((p) => p.id == s.tekoAktif && p.dimiliki)
+            ? s.tekoAktif
+            : 0;
+        _pilihMilikId = _aktifId;
+        _memuat = false;
+      });
+    } catch (e) {
+      debugPrint('Gagal memuat data penyiraman: $e');
+      if (!mounted) return;
+      setState(() => _memuat = false);
+      _snack('Gagal memuat data, coba buka ulang halaman ini');
+    }
+  }
+
+  // Simpan hasil penyiraman: koin, last_watered_at, dan riwayat blockchain
+  Future<void> _simpanPenyiraman() async {
+    try {
+      final koin = await _repo.catatPenyiraman(await idUserLogin());
+      if (mounted) setState(() => _poinUser = koin);
+    } catch (e) {
+      debugPrint('Gagal menyimpan penyiraman: $e');
+      if (mounted) _snack('Gagal menyimpan hasil penyiraman');
+    }
   }
 
   void _startListeningSensors() {
     _accelSubscription =
         accelerometerEventStream().listen((AccelerometerEvent event) {
-      if (!mounted) return;
+      if (!mounted || _memuat) return;
 
       bool targetTercapai = false;
 
@@ -114,11 +157,7 @@ class _SimulasiPenyiramanScreenState extends State<SimulasiPenyiramanScreen> {
 
       // Efek samping (dialog & log) dijalankan di luar setState
       if (targetTercapai) {
-        BlockchainService.catat(
-          poin: 2,
-          deskripsi: 'Menyiram tanaman mini game',
-          tipe: BlockchainService.tipePemasukan,
-        );
+        _simpanPenyiraman();
         _tampilkanPopupBerhasil();
       }
     });
@@ -231,25 +270,47 @@ class _SimulasiPenyiramanScreenState extends State<SimulasiPenyiramanScreen> {
 
     if (ya != true || !mounted) return;
 
+    // Simpan pembelian dulu; layar baru berubah kalau berhasil tersimpan
+    bool berhasil;
+    try {
+      berhasil = await _repo.beliTeko(
+        userId: await idUserLogin(),
+        canId: item.id,
+        harga: item.harga,
+        namaTeko: item.nama,
+      );
+    } catch (e) {
+      debugPrint('Gagal menyimpan pembelian: $e');
+      if (mounted) _snack('Gagal menyimpan pembelian');
+      return;
+    }
+    if (!mounted) return;
+    if (!berhasil) {
+      _snack('Poin kamu tidak cukup!');
+      return;
+    }
+
     setState(() {
       _poinUser -= item.harga;
       item.dimiliki = true;
       _pilihMilikId = item.id; // langsung terpilih di daftar milik
       _tokoTerpilihId = null;
     });
-
-    BlockchainService.catat(
-      poin: item.harga,
-      deskripsi: 'Membeli penyiram tanaman (${item.nama})',
-      tipe: BlockchainService.tipePengeluaran,
-    );
     _snack('Berhasil membeli ${item.nama}! Tekan "Gunakan" untuk memakainya.');
   }
 
   // Pakai teko yang sudah dibeli
-  void _gunakanPenyiram() {
+  Future<void> _gunakanPenyiram() async {
     final item = _cari(_pilihMilikId);
     if (!item.dimiliki) return;
+    try {
+      await _repo.gunakanTeko(await idUserLogin(), item.id);
+    } catch (e) {
+      debugPrint('Gagal menyimpan teko aktif: $e');
+      if (mounted) _snack('Gagal menyimpan pilihan teko');
+      return;
+    }
+    if (!mounted) return;
     setState(() => _aktifId = item.id);
     _snack('${item.nama} sekarang dipakai');
   }
@@ -305,13 +366,8 @@ class _SimulasiPenyiramanScreenState extends State<SimulasiPenyiramanScreen> {
             _buildTokoSection(),
 
             // Pilih Penyiram Tanaman (yang sudah dimiliki)
-            if (_daftarMilik.length > 1 || _aktifId != 0) ...[
-              const SizedBox(height: 16),
-              _buildPilihSection(),
-            ] else ...[
-              const SizedBox(height: 16),
-              _buildPilihSection(),
-            ],
+            const SizedBox(height: 16),
+            _buildPilihSection(),
           ],
         ),
       ),

@@ -25,6 +25,7 @@ class SyncService {
         // Insert ke tabel 'users' di PostgreSQL Supabase
         await _supabase.from('users').insert({
           // Pastikan nama key ini sesuai dengan kolom di tabel PostgreSQL Supabase-mu
+          'id': user.id,
           'name': user.name,
           'username': user.username,
           'email': user.email,
