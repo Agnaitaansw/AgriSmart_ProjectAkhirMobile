@@ -15,7 +15,6 @@ class _TanamanSayaScreenState extends State<TanamanSayaScreen> {
   @override
   void initState() {
     super.initState();
-    PlantManager.instance.initializeNotifications();
     _reload();
   }
   void _reload() => _plantsFuture = PlantManager.instance.getPlants();
