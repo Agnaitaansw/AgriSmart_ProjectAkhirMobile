@@ -1,7 +1,10 @@
-import 'package:flutter/material.dart';
-import '../utils/constants.dart';
-import '../widgets/common.dart';
 
+import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../utils/constants.dart';
+import '../services/session_manager.dart';
+import '../widgets/common.dart';
 
 class SaranPamScreen extends StatefulWidget {
   const SaranPamScreen({super.key});
@@ -15,12 +18,116 @@ class _SaranPamScreenState extends State<SaranPamScreen> {
   final _kesanController = TextEditingController();
   final _saranController = TextEditingController();
 
+  bool _isLoading = false;
+
+  Future<void> _kirimFeedback() async {
+    if (_isLoading) return;
+
+    final kesan = _kesanController.text.trim();
+    final saran = _saranController.text.trim();
+
+    // Validasi input
+    if (kesan.isEmpty && saran.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Silakan isi kesan atau saran terlebih dahulu.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // Mengambil ID pengguna dari session login
+      final userId =
+          await SessionManager.instance.currentUserId();
+
+      if (userId == null) {
+        throw Exception(
+          'Sesi login tidak valid. Silakan login kembali.',
+        );
+      }
+
+      // Menggabungkan kesan dan saran
+      final feedbackText = '''
+Kesan:
+${kesan.isEmpty ? '-' : kesan}
+
+Saran:
+${saran.isEmpty ? '-' : saran}
+'''.trim();
+
+      // Menyimpan feedback ke Supabase
+      await Supabase.instance.client
+          .from('feedbacks_pam')
+          .insert({
+        'user_id': userId,
+        'rating': _rating,
+        'feedback_text': feedbackText,
+        'submitted_at': DateTime.now().toIso8601String(),
+        'synced': 1,
+      });
+
+      if (!mounted) return;
+
+      // Mengosongkan form setelah berhasil
+      _kesanController.clear();
+      _saranController.clear();
+
+      setState(() {
+        _rating = 4;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Terima kasih! Saran & Kesan berhasil dikirim.',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Gagal mengirim feedback: $e',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _kesanController.dispose();
+    _saranController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Kotak Saran', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Kotak Saran',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         backgroundColor: Colors.transparent,
         elevation: 0,
         foregroundColor: Colors.black,
@@ -40,10 +147,22 @@ class _SaranPamScreenState extends State<SaranPamScreen> {
               child: const Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Kotak Saran', style: TextStyle(color: Colors.white70, fontSize: 11)),
+                  Text(
+                    'Kotak Saran',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 11,
+                    ),
+                  ),
                   SizedBox(height: 4),
-                  Text('Berikan Kesan dan Pesan anda',
-                      style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                  Text(
+                    'Berikan Kesan dan Pesan anda',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -55,12 +174,20 @@ class _SaranPamScreenState extends State<SaranPamScreen> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppColors.border),
+                border: Border.all(
+                  color: AppColors.border,
+                ),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Penilaian keseluruhan', style: TextStyle(fontSize: 12, color: AppColors.muted)),
+                  const Text(
+                    'Penilaian keseluruhan',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.muted,
+                    ),
+                  ),
                   const SizedBox(height: 8),
                   Row(
                     children: List.generate(5, (index) {
@@ -68,11 +195,19 @@ class _SaranPamScreenState extends State<SaranPamScreen> {
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
                         icon: Icon(
-                          index < _rating ? Icons.star : Icons.star_border,
-                          color: index < _rating ? Colors.amber : AppColors.muted,
+                          index < _rating
+                              ? Icons.star
+                              : Icons.star_border,
+                          color: index < _rating
+                              ? Colors.amber
+                              : AppColors.muted,
                           size: 32,
                         ),
-                        onPressed: () => setState(() => _rating = index + 1),
+                        onPressed: () {
+                          setState(() {
+                            _rating = index + 1;
+                          });
+                        },
                       );
                     }),
                   ),
@@ -82,48 +217,76 @@ class _SaranPamScreenState extends State<SaranPamScreen> {
             const SizedBox(height: 14),
 
             // Form Kesan
-            const Text('Kesan', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            const Text(
+              'Kesan',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
             const SizedBox(height: 6),
             TextField(
               controller: _kesanController,
               maxLines: 4,
               style: const TextStyle(fontSize: 13),
               decoration: InputDecoration(
-                hintText: 'Tulis kesan Anda selama kuliah pemrogramman aplikasi mobile ',
-                hintStyle: const TextStyle(fontSize: 12, color: AppColors.muted),
+                hintText:
+                    'Tulis kesan Anda selama kuliah pemrogramman aplikasi mobile ',
+                hintStyle: const TextStyle(
+                  fontSize: 12,
+                  color: AppColors.muted,
+                ),
                 filled: true,
                 fillColor: Colors.white,
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: AppColors.border),
+                  borderSide: const BorderSide(
+                    color: AppColors.border,
+                  ),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: AppColors.green),
+                  borderSide: const BorderSide(
+                    color: AppColors.green,
+                  ),
                 ),
               ),
             ),
             const SizedBox(height: 14),
 
             // Form Saran
-            const Text('Saran', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            const Text(
+              'Saran',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
             const SizedBox(height: 6),
             TextField(
               controller: _saranController,
               maxLines: 4,
               style: const TextStyle(fontSize: 13),
               decoration: InputDecoration(
-                hintText: 'Tulis saran untuk pengembangan mata kuliah ini agar lebih baik di masa depan',
-                hintStyle: const TextStyle(fontSize: 12, color: AppColors.muted),
+                hintText:
+                    'Tulis saran untuk pengembangan mata kuliah ini agar lebih baik di masa depan',
+                hintStyle: const TextStyle(
+                  fontSize: 12,
+                  color: AppColors.muted,
+                ),
                 filled: true,
                 fillColor: Colors.white,
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: AppColors.border),
+                  borderSide: const BorderSide(
+                    color: AppColors.border,
+                  ),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: AppColors.green),
+                  borderSide: const BorderSide(
+                    color: AppColors.green,
+                  ),
                 ),
               ),
             ),
@@ -131,19 +294,35 @@ class _SaranPamScreenState extends State<SaranPamScreen> {
 
             // Tombol Kirim
             ElevatedButton(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Terima kasih! Saran & Kesan berhasil dikirim.')),
-                );
-              },
+              onPressed:
+                  _isLoading ? null : _kirimFeedback,
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF1E5B3E),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 14,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
-              child: const Text('Kirim',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-            )
+              child: _isLoading
+                  ? const SizedBox(
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text(
+                      'Kirim',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+            ),
           ],
         ),
       ),

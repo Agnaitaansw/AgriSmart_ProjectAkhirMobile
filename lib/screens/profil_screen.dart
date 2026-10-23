@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:local_auth/local_auth.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -28,44 +27,32 @@ class _ProfilScreenState extends State<ProfilScreen> {
   bool _bioEnabled = false;
   bool _notiEnabled = true;
   bool _loading = true;
-  String? _photoPath;
+  bool _uploadingPhoto = false;
+
+  String? _photoUrl;
   UserModel? _user;
 
-  String get _userKey {
-    final userId = Supabase.instance.client.auth.currentUser?.id;
-    return userId ?? 'guest';
-  }
+  String get _userKey => _user?.id?.toString() ?? 'guest';
 
   String get _displayName {
-    final appName = _user?.name;
-    if (appName != null && appName.trim().isNotEmpty) {
-      return appName.trim();
-    }
-    final user = Supabase.instance.client.auth.currentUser;
-    final metadataName = user?.userMetadata?['full_name'] ??
-        user?.userMetadata?['name'];
-    if (metadataName is String && metadataName.trim().isNotEmpty) {
-      return metadataName.trim();
-    }
-    final email = user?.email;
-    if (email != null && email.contains('@')) {
-      return email.split('@').first;
+    final name = _user?.name;
+    if (name != null && name.trim().isNotEmpty) {
+      return name.trim();
     }
     return 'Pengguna AgriSmart';
   }
 
   String get _email {
-    final appEmail = _user?.email;
-    if (appEmail != null && appEmail.trim().isNotEmpty) {
-      return appEmail.trim();
+    final email = _user?.email;
+    if (email != null && email.trim().isNotEmpty) {
+      return email.trim();
     }
-    return Supabase.instance.client.auth.currentUser?.email ??
-        'Email belum tersedia';
+    return 'Email belum tersedia';
   }
 
   String get _bioPreferenceKey => 'biometric_enabled_$_userKey';
-  String get _photoPreferenceKey => 'profile_photo_$_userKey';
-  String get _notificationPreferenceKey => 'plant_notifications_$_userKey';
+  String get _notificationPreferenceKey =>
+      'plant_notifications_$_userKey';
 
   @override
   void initState() {
@@ -73,25 +60,76 @@ class _ProfilScreenState extends State<ProfilScreen> {
     _loadPreferences();
   }
 
+  @override
+  void dispose() {
+    super.dispose();
+  }
+
   Future<void> _loadPreferences() async {
-    final prefs = await SharedPreferences.getInstance();
-    final appUser = await AuthService.instance.currentUser();
-    if (!mounted) return;
-    setState(() {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final appUser = await AuthService.instance.currentUser();
+
+      if (!mounted) return;
+
+      if (appUser == null) {
+        setState(() => _loading = false);
+        return;
+      }
+
       _user = appUser;
-      _bioEnabled = prefs.getBool(_bioPreferenceKey) ?? false;
-      _notiEnabled = prefs.getBool(_notificationPreferenceKey) ?? true;
-      _photoPath = prefs.getString(_photoPreferenceKey);
-      _loading = false;
-    });
+
+      String? photoUrl;
+
+      // Ambil URL foto berdasarkan email akun lokal yang sedang login.
+      try {
+        final row = await Supabase.instance.client
+            .from('users')
+            .select('profile_picture_url')
+            .eq('email', appUser.email)
+            .maybeSingle();
+
+        photoUrl = row?['profile_picture_url'] as String?;
+      } catch (_) {
+        // Jika internet/database belum tersedia, lanjutkan tanpa foto online.
+      }
+
+      if (!mounted) return;
+
+      setState(() {
+        _photoUrl = photoUrl;
+        _bioEnabled = prefs.getBool(_bioPreferenceKey) ?? false;
+        _notiEnabled =
+            prefs.getBool(_notificationPreferenceKey) ?? true;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      _showMessage('Gagal memuat profil: $e');
+    }
   }
 
   Future<void> _changePhoto() async {
+    // Mengambil user dari sesi login AgriSmart, bukan Supabase Auth.
+    final currentUser = await AuthService.instance.currentUser();
+
+    if (!mounted) return;
+
+    if (currentUser == null || currentUser.id == null) {
+      _showMessage(
+        'Sesi login tidak ditemukan. Silakan login kembali.',
+      );
+      return;
+    }
+
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(18),
+        ),
       ),
       builder: (context) => SafeArea(
         child: Wrap(
@@ -100,68 +138,104 @@ class _ProfilScreenState extends State<ProfilScreen> {
               padding: EdgeInsets.fromLTRB(20, 18, 20, 8),
               child: Text(
                 'Pilih foto profil',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
             ListTile(
               leading: const Icon(Icons.photo_library_outlined),
               title: const Text('Pilih dari galeri'),
-              onTap: () => Navigator.pop(context, ImageSource.gallery),
+              onTap: () =>
+                  Navigator.pop(context, ImageSource.gallery),
             ),
             ListTile(
               leading: const Icon(Icons.camera_alt_outlined),
               title: const Text('Ambil dari kamera'),
-              onTap: () => Navigator.pop(context, ImageSource.camera),
+              onTap: () =>
+                  Navigator.pop(context, ImageSource.camera),
             ),
           ],
         ),
       ),
     );
 
-    if (source == null) return;
+    if (source == null || !mounted) return;
 
     try {
+      setState(() => _uploadingPhoto = true);
+
       final picked = await _imagePicker.pickImage(
         source: source,
         imageQuality: 85,
         maxWidth: 1200,
       );
+
       if (picked == null) return;
 
-      final directory = await getApplicationDocumentsDirectory();
-      final extension = picked.path.contains('.')
-          ? picked.path.substring(picked.path.lastIndexOf('.'))
-          : '.jpg';
-      // Nama file unik tiap ganti foto, supaya cache gambar Flutter tidak
-      // menampilkan foto lama dan notifier benar-benar terpicu.
-      final savedFile = await File(picked.path).copy(
-        '${directory.path}/profile_${_userKey}_'
-        '${DateTime.now().millisecondsSinceEpoch}$extension',
+      final bytes = await picked.readAsBytes();
+
+      final extension = picked.name.contains('.')
+          ? picked.name
+              .substring(picked.name.lastIndexOf('.') + 1)
+              .toLowerCase()
+          : 'jpg';
+
+      final safeExtension =
+          ['jpg', 'jpeg', 'png', 'webp'].contains(extension)
+              ? extension
+              : 'jpg';
+
+      final userId = currentUser.id!;
+
+      // Foto disimpan berdasarkan ID user lokal AgriSmart.
+      final storagePath =
+          '$userId/profile_${DateTime.now().millisecondsSinceEpoch}.$safeExtension';
+
+      final storage =
+          Supabase.instance.client.storage.from('profile-photos');
+
+      await storage.uploadBinary(
+        storagePath,
+        bytes,
+        fileOptions: FileOptions(
+          contentType: picked.mimeType ??
+              (safeExtension == 'jpg'
+                  ? 'image/jpeg'
+                  : 'image/$safeExtension'),
+        ),
       );
 
-      final prefs = await SharedPreferences.getInstance();
-      final oldPath = prefs.getString(_photoPreferenceKey);
-      await prefs.setString(_photoPreferenceKey, savedFile.path);
+      final photoUrl = storage.getPublicUrl(storagePath);
 
-      if (oldPath != null && oldPath != savedFile.path) {
-        try {
-          final oldFile = File(oldPath);
-          if (await oldFile.exists()) await oldFile.delete();
-        } catch (_) {}
-      }
-
-      profilePhotoNotifier.value = savedFile.path;
+      // Simpan URL ke database online, bukan hanya ke perangkat.
+      await Supabase.instance.client
+          .from('users')
+          .update({'profile_picture_url': photoUrl})
+          .eq('email', currentUser.email);
 
       if (!mounted) return;
-      setState(() => _photoPath = savedFile.path);
+
+      setState(() => _photoUrl = photoUrl);
+
+      // Notifier lama dipertahankan untuk kompatibilitas.
+      // Jika widget lain menganggap nilainya selalu berupa path file,
+      // sesuaikan widget tersebut agar bisa membaca URL jaringan.
+      profilePhotoNotifier.value = photoUrl;
+
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Foto profil berhasil diperbarui.')),
+        const SnackBar(
+          content: Text('Foto profil berhasil diperbarui.'),
+        ),
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gagal memilih foto: $e')),
-      );
+      _showMessage('Gagal menyimpan foto profil: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _uploadingPhoto = false);
+      }
     }
   }
 
@@ -181,7 +255,8 @@ class _ProfilScreenState extends State<ProfilScreen> {
         }
 
         final authenticated = await _localAuth.authenticate(
-          localizedReason: 'Verifikasi identitas untuk mengaktifkan login biometrik AgriSmart',
+          localizedReason:
+              'Verifikasi identitas untuk mengaktifkan login biometrik AgriSmart',
           options: const AuthenticationOptions(
             biometricOnly: true,
             stickyAuth: true,
@@ -197,8 +272,11 @@ class _ProfilScreenState extends State<ProfilScreen> {
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_bioPreferenceKey, enabled);
+
     if (!mounted) return;
+
     setState(() => _bioEnabled = enabled);
+
     _showMessage(
       enabled
           ? 'Login biometrik diaktifkan pada perangkat ini.'
@@ -208,13 +286,17 @@ class _ProfilScreenState extends State<ProfilScreen> {
 
   Future<void> _setNotifications(bool enabled) async {
     final prefs = await SharedPreferences.getInstance();
+
     await prefs.setBool(_notificationPreferenceKey, enabled);
+
     if (!mounted) return;
+
     setState(() => _notiEnabled = enabled);
   }
 
   void _showMessage(String message) {
     if (!mounted) return;
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
     );
@@ -222,14 +304,18 @@ class _ProfilScreenState extends State<ProfilScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final photoExists = _photoPath != null && File(_photoPath!).existsSync();
+    final photoUrl = _photoUrl;
+    final photoExists = photoUrl != null && photoUrl.isNotEmpty;
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text(
           'Profil',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -246,7 +332,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
                     child: Column(
                       children: [
                         InkWell(
-                          onTap: _changePhoto,
+                          onTap: _uploadingPhoto ? null : _changePhoto,
                           customBorder: const CircleBorder(),
                           child: Stack(
                             alignment: Alignment.bottomRight,
@@ -263,7 +349,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
                                   ),
                                   image: photoExists
                                       ? DecorationImage(
-                                          image: FileImage(File(_photoPath!)),
+                                          image: NetworkImage(photoUrl),
                                           fit: BoxFit.cover,
                                         )
                                       : null,
@@ -273,7 +359,8 @@ class _ProfilScreenState extends State<ProfilScreen> {
                                     : Center(
                                         child: Text(
                                           _displayName.isNotEmpty
-                                              ? _displayName[0].toUpperCase()
+                                              ? _displayName[0]
+                                                  .toUpperCase()
                                               : 'A',
                                           style: const TextStyle(
                                             fontSize: 36,
@@ -289,11 +376,20 @@ class _ProfilScreenState extends State<ProfilScreen> {
                                   color: Color(0xFF1E5B3E),
                                   shape: BoxShape.circle,
                                 ),
-                                child: const Icon(
-                                  Icons.camera_alt,
-                                  size: 14,
-                                  color: Colors.white,
-                                ),
+                                child: _uploadingPhoto
+                                    ? const SizedBox(
+                                        width: 14,
+                                        height: 14,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : const Icon(
+                                        Icons.camera_alt,
+                                        size: 14,
+                                        color: Colors.white,
+                                      ),
                               ),
                             ],
                           ),
@@ -316,12 +412,15 @@ class _ProfilScreenState extends State<ProfilScreen> {
                         ),
                         const SizedBox(height: 12),
                         OutlinedButton(
-                          onPressed: _changePhoto,
+                          onPressed:
+                              _uploadingPhoto ? null : _changePhoto,
                           style: OutlinedButton.styleFrom(
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(20),
                             ),
-                            side: const BorderSide(color: AppColors.green),
+                            side: const BorderSide(
+                              color: AppColors.green,
+                            ),
                             padding: const EdgeInsets.symmetric(
                               horizontal: 16,
                               vertical: 8,
@@ -412,7 +511,8 @@ class _ProfilScreenState extends State<ProfilScreen> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) => const TanamanSayaScreen(),
+                                builder: (_) =>
+                                    const TanamanSayaScreen(),
                               ),
                             );
                           },
@@ -427,7 +527,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
                             ),
                           ),
                           subtitle: Text(
-                            'Data profil dan tanaman tersimpan di perangkat',
+                            'Foto profil tersimpan di database online',
                             style: TextStyle(
                               fontSize: 11,
                               color: AppColors.muted,
@@ -443,7 +543,8 @@ class _ProfilScreenState extends State<ProfilScreen> {
                   ),
                   const SizedBox(height: 20),
                   ElevatedButton.icon(
-                    onPressed: () => showLogoutConfirmation(context),
+                    onPressed: () =>
+                        showLogoutConfirmation(context),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFFC0392B),
                       padding: const EdgeInsets.symmetric(vertical: 14),

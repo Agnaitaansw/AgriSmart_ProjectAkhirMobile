@@ -55,8 +55,8 @@ class NotificationService {
     return notif;
   }
 
-  /// Jadwalkan notifikasi penyiraman setiap hari jam 18.00 ///besok ganti ke 09.00
-  Future<void> scheduleDailyWatering({int hour = 18, int minute = 0}) async {
+  /// Jadwalkan notifikasi penyiraman setiap hari jam 09.00 //
+  Future<void> scheduleDailyWatering({int hour = 21, int minute = 52}) async {
     await init();
     await _plugin.cancel(id: _dailyId); // hindari jadwal dobel
 
