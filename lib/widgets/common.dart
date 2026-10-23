@@ -210,7 +210,10 @@ class _DashedRRectPainter extends CustomPainter {
 }
 
 class AppBottomNav extends StatelessWidget {
-  const AppBottomNav({super.key});
+  const AppBottomNav({super.key, this.currentIndex = 0});
+
+  /// 0 = Beranda, 1 = Profil, 2 = Saran P&M
+  final int currentIndex;
 
   Future<void> _logout(BuildContext context) async {
     final confirm = await showDialog<bool>(
@@ -241,6 +244,14 @@ class AppBottomNav extends StatelessWidget {
     );
   }
 
+  void _go(BuildContext context, int index, Widget? page) {
+    if (index == currentIndex) return; // sudah di halaman ini
+    Navigator.of(context).popUntil((route) => route.isFirst);
+    if (page != null) {
+      Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -256,34 +267,30 @@ class AppBottomNav extends StatelessWidget {
             children: [
               _NavItem(
                 icon: Icons.home_outlined,
+                activeIcon: Icons.home,
                 label: 'Beranda',
-                selected: true,
-                onTap: () =>
-                    Navigator.of(context).popUntil((route) => route.isFirst),
+                selected: currentIndex == 0,
+                onTap: () => _go(context, 0, null),
               ),
               _NavItem(
                 icon: Icons.person_outline,
+                activeIcon: Icons.person,
                 label: 'Profil',
-                onTap: () {
-                  Navigator.of(context).popUntil((route) => route.isFirst);
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const ProfilScreen()),
-                  );
-                },
+                selected: currentIndex == 1,
+                onTap: () => _go(context, 1, const ProfilScreen()),
               ),
               _NavItem(
                 icon: Icons.chat_bubble_outline,
+                activeIcon: Icons.chat_bubble,
                 label: 'Saran P&M',
-                onTap: () {
-                  Navigator.of(context).popUntil((route) => route.isFirst);
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const SaranPamScreen()),
-                  );
-                },
+                selected: currentIndex == 2,
+                onTap: () => _go(context, 2, const SaranPamScreen()),
               ),
               _NavItem(
                 icon: Icons.logout,
+                activeIcon: Icons.logout,
                 label: 'Logout',
+                selected: false,
                 onTap: () => _logout(context),
               ),
             ],
@@ -297,41 +304,57 @@ class AppBottomNav extends StatelessWidget {
 class _NavItem extends StatelessWidget {
   const _NavItem({
     required this.icon,
+    required this.activeIcon,
     required this.label,
     required this.onTap,
     this.selected = false,
   });
 
   final IconData icon;
+  final IconData activeIcon;
   final String label;
   final bool selected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final color = selected ? AppColors.green : AppColors.muted;
+    // Terpilih = hijau, tidak terpilih = hitam biasa
+    final color = selected ? AppColors.green : Colors.black87;
+
     return Expanded(
       child: InkWell(
         onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        hoverColor: AppColors.greenSoft,
+        splashColor: AppColors.greenSoft,
+        highlightColor: AppColors.greenSoft.withAlpha(153),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 3),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOut,
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 3),
               decoration: BoxDecoration(
                 color: selected ? AppColors.greenSoft : Colors.transparent,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(icon, size: 20, color: color),
+              child: Icon(
+                selected ? activeIcon : icon,
+                size: 20,
+                color: color,
+              ),
             ),
             const SizedBox(height: 2),
-            Text(
-              label,
+            AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 200),
               style: TextStyle(
                 fontSize: 10,
                 color: color,
                 fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
               ),
+              child: Text(label),
             ),
           ],
         ),
@@ -347,11 +370,15 @@ class SubPageScaffold extends StatelessWidget {
     required this.title,
     required this.children,
     this.actions,
+    this.navIndex = 0,
   });
 
   final String title;
   final List<Widget> children;
   final List<Widget>? actions;
+
+  /// Tab bottom nav yang aktif (0 = Beranda, 1 = Profil, 2 = Saran P&M).
+  final int navIndex;
 
   @override
   Widget build(BuildContext context) {
@@ -368,7 +395,7 @@ class SubPageScaffold extends StatelessWidget {
         ),
         actions: actions,
       ),
-      bottomNavigationBar: const AppBottomNav(),
+      bottomNavigationBar: AppBottomNav(currentIndex: navIndex),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
         children: children,
