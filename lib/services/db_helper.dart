@@ -100,6 +100,35 @@ class DbHelper {
     ''');
   }
 
+  /// Simpan akun dengan id yang SAMA dengan id di Supabase.
+  /// Kalau ada baris lokal lama dengan username/email/id yang sama
+  /// (misalnya salinan dobel dari versi sebelumnya), baris itu diganti.
+  Future<void> upsertUserFromCloud({
+    required int id,
+    required String name,
+    required String username,
+    required String email,
+    required String passwordHash,
+    required String salt,
+    required String createdAt,
+  }) async {
+    final db = await database;
+    await db.insert(
+      'users',
+      {
+        'id': id,
+        'name': name,
+        'username': username,
+        'email': email.toLowerCase(),
+        'password_hash': passwordHash,
+        'salt': salt,
+        'created_at': createdAt,
+        'synced': 1,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
   Future<int> insertUser(UserModel user) async {
     final db = await database;
     return db.insert('users', user.toMap(),
