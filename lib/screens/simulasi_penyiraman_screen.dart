@@ -54,7 +54,7 @@ class _SimulasiPenyiramanScreenState extends State<SimulasiPenyiramanScreen> {
   int _poinUser = 0;
   bool _sudahDisiramHariIni = false;
 
-  // TAMBAH: status pengingat harian jam 09.00
+  // TAMBAH: status pengingat harian setiap 1jam
   bool _pengingatAktif = false;
   bool _pengingatMemproses = false;
 
@@ -101,7 +101,7 @@ class _SimulasiPenyiramanScreenState extends State<SimulasiPenyiramanScreen> {
     }
   }
 
-  // TAMBAH: nyalakan / matikan pengingat harian jam 09.00
+  // TAMBAH: nyalakan / matikan pengingat harian setiap 1 jam
   Future<void> _ubahPengingat(bool nyala) async {
     if (_pengingatMemproses) return;
     setState(() => _pengingatMemproses = true);
@@ -115,10 +115,12 @@ class _SimulasiPenyiramanScreenState extends State<SimulasiPenyiramanScreen> {
           }
           return;
         }
-        await NotificationService.instance.scheduleDailyWatering(hour: 9);
+        // Notifikasi tiap 1 jam selama hari itu belum menyiram
+        await NotificationService.instance
+            .jadwalkanPerJam(sudahDisiramHariIni: _sudahDisiramHariIni);
         if (mounted) {
           setState(() => _pengingatAktif = true);
-          _snack('Pengingat aktif: setiap hari jam 09.00');
+          _snack('Pengingat aktif: setiap 1 jam');
         }
       } else {
         await NotificationService.instance.cancelWatering();
@@ -132,6 +134,20 @@ class _SimulasiPenyiramanScreenState extends State<SimulasiPenyiramanScreen> {
       if (mounted) _snack('Gagal mengatur pengingat');
     } finally {
       if (mounted) setState(() => _pengingatMemproses = false);
+    }
+  }
+
+  // Kalau pengingat menyala, perbarui jadwalnya setiap layar ini dibuka:
+  // hari ini sudah disiram -> lewati, dan jendela 3 hari ke depan diperpanjang.
+  Future<void> _segarkanJadwal() async {
+    try {
+      final aktif = await NotificationService.instance.isWateringScheduled();
+      if (aktif) {
+        await NotificationService.instance
+            .jadwalkanPerJam(sudahDisiramHariIni: _sudahDisiramHariIni);
+      }
+    } catch (e) {
+      debugPrint('Gagal menyegarkan jadwal pengingat: $e');
     }
   }
 
@@ -154,6 +170,7 @@ class _SimulasiPenyiramanScreenState extends State<SimulasiPenyiramanScreen> {
         _pilihMilikId = _aktifId;
         _memuat = false;
       });
+      _segarkanJadwal();
     } catch (e) {
       debugPrint('Gagal memuat data penyiraman: $e');
       if (!mounted) return;
@@ -167,6 +184,12 @@ class _SimulasiPenyiramanScreenState extends State<SimulasiPenyiramanScreen> {
     try {
       final koin = await _repo.catatPenyiraman(await idUserLogin());
       if (mounted) setState(() => _poinUser = koin);
+
+      // Sudah menyiram: hentikan sisa notifikasi hari ini (besok mulai lagi)
+      if (_pengingatAktif) {
+        await NotificationService.instance
+            .jadwalkanPerJam(sudahDisiramHariIni: true);
+      }
     } catch (e) {
       debugPrint('Gagal menyimpan penyiraman: $e');
       if (mounted) _snack('Gagal menyimpan hasil penyiraman');
@@ -448,11 +471,11 @@ class _SimulasiPenyiramanScreenState extends State<SimulasiPenyiramanScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Pengingat harian jam 09.00',
+                Text('Pengingat tiap 1 jam',
                     style:
                         TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                 SizedBox(height: 2),
-                Text('Notifikasi untuk menyiram tanaman di game.',
+                Text('Muncul tiap jam (08.00-21.00) selama belum menyiram.',
                     style: TextStyle(fontSize: 10, color: AppColors.muted)),
               ],
             ),

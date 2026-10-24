@@ -7,10 +7,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
-// Sesuaikan path/nama file di 4 import ini dengan projekmu
 import '../screens/simulasi_penyiraman_screen.dart';
-import 'session_manager.dart';
 import 'penyiraman_repository.dart';
+import 'session_manager.dart';
 import 'sesi_user.dart';
 
 class NotificationService {
@@ -134,6 +133,7 @@ class NotificationService {
   }) async {
     await init();
     await _batalkanPerJam();
+    await _plugin.cancel(id: _dailyId); // buang jadwal harian lama (jam 9 dst.)
 
     final canExact = await _android?.canScheduleExactNotifications() ?? false;
     final now = tz.TZDateTime.now(tz.local);

@@ -9,6 +9,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'db_helper.dart';
 import '../models/user_plant.dart';
+import 'notification_service.dart';
 import 'sesi_user.dart';
 
 /// Tanaman milik user: disimpan di SQLite dulu, lalu dikirim ke Supabase.
@@ -24,7 +25,10 @@ class PlantManager {
   final FlutterLocalNotificationsPlugin _notifications =
       FlutterLocalNotificationsPlugin();
 
-  bool _notificationsReady = false;
+  /// Pengingat siram di "Tanaman Saya". DIMATIKAN: pengingat penyiraman
+  /// sekarang hanya untuk mini game (lihat NotificationService).
+  /// Ubah ke true kalau suatu saat ingin menyalakannya lagi.
+  static const bool pengingatTanamanAktif = false;
 
   // user yang sudah disiapkan (migrasi + tarik data) selama aplikasi berjalan
   static final Set<int> _sudahDisiapkan = {};
@@ -35,22 +39,9 @@ class PlantManager {
 
   // Inisialisasi notifikasi
   Future<void> initializeNotifications() async {
-    if (_notificationsReady) return;
-
-    const settings = InitializationSettings(
-      android: AndroidInitializationSettings('@mipmap/ic_launcher'),
-      iOS: DarwinInitializationSettings(),
-    );
-
-    await _notifications.initialize(settings: settings); // UBAH
-
-    final android = _notifications
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>();
-
-    await android?.requestNotificationsPermission();
-
-    _notificationsReady = true;
+    // Inisialisasi plugin hanya di NotificationService, supaya callback
+    // ketukan notifikasi (buka mini game) tidak tertimpa.
+    await NotificationService.instance.init();
   }
 
   // ───────────────────────── BACA ─────────────────────────
@@ -196,6 +187,8 @@ class PlantManager {
   // Sekali per sesi aplikasi untuk setiap user
   Future<void> _siapkanUser(int userId) async {
     if (_sudahDisiapkan.contains(userId)) return;
+    // Pengingat tanaman dimatikan: buang yang sudah terlanjur terjadwal
+    if (!pengingatTanamanAktif) await _batalkanSemuaPengingatTanaman();
     await _migrasiDariPrefs(userId);
     await _tarikDariServerJikaKosong(userId);
     _sudahDisiapkan.add(userId);
@@ -281,8 +274,39 @@ class PlantManager {
   // ID notifikasi = id tanaman di database
   int _notificationId(int plantId) => plantId & 0x7fffffff;
 
+  // ID milik mini game (NotificationService): 900, 999, 1000-1099
+  bool _milikMiniGame(int id) =>
+      id == 900 || id == 999 || (id >= 1000 && id < 1100);
+
+  /// Batalkan semua pengingat tanaman yang masih terjadwal di sistem,
+  /// tanpa menyentuh pengingat mini game.
+  Future<void> _batalkanSemuaPengingatTanaman() async {
+    try {
+      await initializeNotifications();
+
+      // 1. Semua jadwal yang bukan milik mini game
+      final pending = await _notifications.pendingNotificationRequests();
+      for (final n in pending) {
+        if (!_milikMiniGame(n.id)) {
+          await _notifications.cancel(id: n.id);
+        }
+      }
+
+      // 2. Jaga-jaga: id dari tiap tanaman di database
+      final db = await _db;
+      final rows = await db.query('user_plants', columns: ['id']);
+      for (final r in rows) {
+        final nid = _notificationId(r['id'] as int);
+        if (!_milikMiniGame(nid)) await _notifications.cancel(id: nid);
+      }
+    } catch (e) {
+      debugPrint('Gagal membatalkan pengingat tanaman: $e');
+    }
+  }
+
   // Menjadwalkan pengingat penyiraman setiap hari
   Future<void> _scheduleWateringReminder(int plantId, String name) async {
+    if (!pengingatTanamanAktif) return; // pengingat tanaman dimatikan
     await initializeNotifications();
 
     // UBAH: semua parameter sekarang bernama
@@ -306,6 +330,10 @@ class PlantManager {
   }
 
   Future<void> _jadwalkanUlangSemua(int userId) async {
+    if (!pengingatTanamanAktif) {
+      await _batalkanSemuaPengingatTanaman();
+      return;
+    }
     await initializeNotifications();
 
     final db = await _db;

@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
+import '../services/notification_service.dart';
 import '../utils/constants.dart';
 import '../widgets/common.dart';
 import 'diagnosa_screen.dart';
@@ -98,6 +99,7 @@ class _BerandaScreenState extends State<BerandaScreen> {
   @override
   void initState() {
     super.initState();
+    NotificationService.instance.bukaMinigameJikaDariNotifikasi();
     _loadUserSession();
     _loadProfilePhoto();
     _getCurrentLocation();
