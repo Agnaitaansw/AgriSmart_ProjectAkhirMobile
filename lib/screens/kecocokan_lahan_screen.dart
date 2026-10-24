@@ -3,6 +3,7 @@ import 'package:geolocator/geolocator.dart';
 import '../utils/constants.dart';
 import '../utils/crop_recommendation.dart';
 import '../widgets/common.dart';
+import '../services/plant_api_service.dart';
 
 class KecocokanLahanScreen extends StatefulWidget {
   final double? latitude;
@@ -26,6 +27,9 @@ class _KecocokanLahanScreenState extends State<KecocokanLahanScreen> {
   String _zoneName = 'Dataran Rendah';
 
   List<CropRecommendation> _recommendations = [];
+  bool _apiPlantsLoading = false;
+  String? _apiPlantsError;
+  List<Map<String, dynamic>> _apiPlants = [];
 
   @override
   void initState() {
@@ -60,6 +64,26 @@ class _KecocokanLahanScreenState extends State<KecocokanLahanScreen> {
     }
 
     _analyzeLandMatch();
+    await _loadApiPlants();
+  }
+
+  Future<void> _loadApiPlants() async {
+    if (!PlantApiService.isConfigured) {
+      if (mounted) setState(() => _apiPlantsError = 'API belum dikonfigurasi.');
+      return;
+    }
+    if (mounted) setState(() { _apiPlantsLoading = true; _apiPlantsError = null; });
+    try {
+      final plants = await PlantApiService.findPlantsForLocation(latitude: _lat, longitude: _lng);
+      if (!mounted) return;
+      setState(() { _apiPlants = plants; _apiPlantsLoading = false; });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _apiPlantsError = e.toString().replaceFirst('PlantApiException: ', '');
+        _apiPlantsLoading = false;
+      });
+    }
   }
 
   // Hasil analisis disimpan agar halaman Tanaman memakai data yang sama.
@@ -164,9 +188,67 @@ class _KecocokanLahanScreenState extends State<KecocokanLahanScreen> {
           ),
         ),
         const SizedBox(height: 18),
-
         const Text(
-          'Rekomendasi tanaman untuk lahan ini',
+          'Hasil API: tanaman yang cocok dengan cahaya lokasi',
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 5),
+        const Text(
+          'Whats My Zone mencocokkan kondisi cahaya dan lokasi. Katalognya dapat mencakup tanaman hias atau spesies non-pangan, jadi hasil ini bukan pengganti rekomendasi agronomi tanaman pangan Indonesia.',
+          style: TextStyle(fontSize: 10, height: 1.4, color: AppColors.muted),
+        ),
+        const SizedBox(height: 10),
+        if (_apiPlantsLoading)
+          const AppCard(child: Padding(
+            padding: EdgeInsets.all(16),
+            child: Center(child: CircularProgressIndicator()),
+          ))
+        else if (_apiPlants.isNotEmpty)
+          ..._apiPlants.take(8).map((plant) {
+            final name = (plant['accepted_name'] ?? plant['profile_name'] ?? 'Tanaman').toString();
+            final family = (plant['family'] ?? '').toString();
+            final key = (plant['profile_key'] ?? '').toString();
+            final match = plant['space_matches'];
+            final matchText = match is Map && match['natural'] == true
+                ? 'Cocok dengan cahaya alami'
+                : 'Periksa detail kecocokan cahaya';
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: AppCard(child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.wb_sunny_outlined, color: AppColors.green),
+                  const SizedBox(width: 9),
+                  Expanded(child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(name, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800)),
+                      if (family.isNotEmpty) Text('Famili: $family', style: const TextStyle(fontSize: 10, color: AppColors.muted)),
+                      Text(matchText, style: const TextStyle(fontSize: 10, color: AppColors.green)),
+                      if (key.isNotEmpty) Text('ID katalog: $key', style: const TextStyle(fontSize: 9, color: AppColors.muted)),
+                    ],
+                  )),
+                ],
+              )),
+            );
+          })
+        else
+          AppCard(child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(_apiPlantsError ?? 'API belum menemukan tanaman untuk kondisi ini.',
+                style: const TextStyle(fontSize: 11, height: 1.4, color: AppColors.muted)),
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: _loadApiPlants,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Muat ulang hasil API'),
+              ),
+            ],
+          )),
+        const SizedBox(height: 18),
+        const Text(
+          'Rekomendasi tanaman pertanian untuk lahan ini',
           style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 10),

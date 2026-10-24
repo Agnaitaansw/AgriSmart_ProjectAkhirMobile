@@ -302,6 +302,11 @@ class _ProfilScreenState extends State<ProfilScreen> {
     );
   }
 
+  // ───────────────────────── UI ─────────────────────────
+
+  static const _ink = Color(0xFF1E5B3E);
+  static const double _maxWidth = 520;
+
   @override
   Widget build(BuildContext context) {
     final photoUrl = _photoUrl;
@@ -310,264 +315,371 @@ class _ProfilScreenState extends State<ProfilScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
+        centerTitle: true,
         title: const Text(
-          'Profil',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
+          'Profil Pengguna',
+          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,
+        scrolledUnderElevation: 0,
         foregroundColor: Colors.black,
       ),
       bottomNavigationBar: const AppBottomNav(currentIndex: 1),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : SafeArea(
-              child: ListView(
-                padding: const EdgeInsets.all(16),
-                children: [
-                  Center(
-                    child: Column(
-                      children: [
-                        InkWell(
-                          onTap: _uploadingPhoto ? null : _changePhoto,
-                          customBorder: const CircleBorder(),
-                          child: Stack(
-                            alignment: Alignment.bottomRight,
-                            children: [
-                              Container(
-                                width: 96,
-                                height: 96,
-                                decoration: BoxDecoration(
-                                  color: AppColors.greenSoft,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: AppColors.green,
-                                    width: 2,
-                                  ),
-                                  image: photoExists
-                                      ? DecorationImage(
-                                          image: NetworkImage(photoUrl),
-                                          fit: BoxFit.cover,
-                                        )
-                                      : null,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final avatar =
+                      (constraints.maxWidth * 0.27).clamp(84.0, 116.0);
+                  final totalH = constraints.maxHeight < 640
+                      ? 640.0
+                      : constraints.maxHeight;
+
+                  return SingleChildScrollView(
+                    physics: const ClampingScrollPhysics(),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: _maxWidth),
+                        child: SizedBox(
+                          height: totalH,
+                          child: Padding(
+                            padding:
+                                const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                            // Sisa tinggi dibagi lewat Spacer supaya
+                            // tata letak merata di semua ukuran layar.
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                _buildProfileHeader(
+                                  avatar,
+                                  photoUrl,
+                                  photoExists,
                                 ),
-                                child: photoExists
-                                    ? null
-                                    : Center(
-                                        child: Text(
-                                          _displayName.isNotEmpty
-                                              ? _displayName[0]
-                                                  .toUpperCase()
-                                              : 'A',
-                                          style: const TextStyle(
-                                            fontSize: 36,
-                                            fontWeight: FontWeight.bold,
-                                            color: AppColors.green,
-                                          ),
-                                        ),
-                                      ),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.all(6),
-                                decoration: const BoxDecoration(
-                                  color: Color(0xFF1E5B3E),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: _uploadingPhoto
-                                    ? const SizedBox(
-                                        width: 14,
-                                        height: 14,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: Colors.white,
-                                        ),
-                                      )
-                                    : const Icon(
-                                        Icons.camera_alt,
-                                        size: 14,
-                                        color: Colors.white,
-                                      ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          _displayName,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          _email,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: AppColors.muted,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        OutlinedButton(
-                          onPressed:
-                              _uploadingPhoto ? null : _changePhoto,
-                          style: OutlinedButton.styleFrom(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            side: const BorderSide(
-                              color: AppColors.green,
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 8,
-                            ),
-                          ),
-                          child: const Text(
-                            'Ganti foto dari galeri atau kamera',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: AppColors.green,
-                              fontWeight: FontWeight.w600,
+                                const Spacer(flex: 2),
+                                _sectionLabel('KEAMANAN & NOTIFIKASI'),
+                                const SizedBox(height: 8),
+                                _buildSecurityCard(),
+                                const Spacer(flex: 2),
+                                _sectionLabel('KELOLA DATA TANAMAN'),
+                                const SizedBox(height: 8),
+                                _buildDataCard(),
+                                const Spacer(flex: 3),
+                                _buildLogoutButton(),
+                              ],
                             ),
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: AppColors.border),
-                    ),
-                    child: Column(
-                      children: [
-                        SwitchListTile(
-                          title: const Text(
-                            'Login biometrik',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          subtitle: const Text(
-                            'Sidik jari atau wajah',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: AppColors.muted,
-                            ),
-                          ),
-                          value: _bioEnabled,
-                          activeColor: const Color(0xFF1E5B3E),
-                          onChanged: _setBiometric,
-                        ),
-                        const Divider(height: 1),
-                        SwitchListTile(
-                          title: const Text(
-                            'Notifikasi game',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          subtitle: const Text(
-                            'siram tanamanmu dan dapatkan poin sebanyak-banyaknya',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: AppColors.muted,
-                            ),
-                          ),
-                          value: _notiEnabled,
-                          activeColor: const Color(0xFF1E5B3E),
-                          onChanged: _setNotifications,
-                        ),
-                        const Divider(height: 1),
-                        ListTile(
-                          leading: const Icon(
-                            Icons.yard_outlined,
-                            color: AppColors.green,
-                          ),
-                          title: const Text(
-                            'Tanaman Saya',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          subtitle: const Text(
-                            'Kelola informasi tanaman milikmu',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: AppColors.muted,
-                            ),
-                          ),
-                          trailing: const Icon(Icons.chevron_right),
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    const TanamanSayaScreen(),
-                              ),
-                            );
-                          },
-                        ),
-                        const Divider(height: 1),
-                        const ListTile(
-                          title: Text(
-                            'Sinkronisasi data',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          subtitle: Text(
-                            'Foto profil tersimpan di database online',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: AppColors.muted,
-                            ),
-                          ),
-                          trailing: Icon(
-                            Icons.check_circle,
-                            color: AppColors.green,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  ElevatedButton.icon(
-                    onPressed: () =>
-                        showLogoutConfirmation(context),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFC0392B),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
                       ),
                     ),
-                    icon: const Icon(
-                      Icons.logout,
-                      color: Colors.white,
-                      size: 18,
+                  );
+                },
+              ),
+            ),
+    );
+  }
+
+  Widget _buildProfileHeader(
+    double avatar,
+    String? photoUrl,
+    bool photoExists,
+  ) {
+    return Column(
+      children: [
+        InkWell(
+          onTap: _uploadingPhoto ? null : _changePhoto,
+          customBorder: const CircleBorder(),
+          child: Stack(
+            alignment: Alignment.bottomRight,
+            children: [
+              Container(
+                width: avatar,
+                height: avatar,
+                decoration: BoxDecoration(
+                  color: AppColors.greenSoft,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppColors.green, width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.green.withAlpha(50),
+                      blurRadius: 16,
+                      offset: const Offset(0, 6),
                     ),
-                    label: const Text(
-                      'Keluar dari akun',
-                      style: TextStyle(
+                  ],
+                  image: photoExists
+                      ? DecorationImage(
+                          image: NetworkImage(photoUrl!),
+                          fit: BoxFit.cover,
+                        )
+                      : null,
+                ),
+                child: photoExists
+                    ? null
+                    : Center(
+                        child: Text(
+                          _displayName.isNotEmpty
+                              ? _displayName[0].toUpperCase()
+                              : 'A',
+                          style: TextStyle(
+                            fontSize: avatar * 0.4,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.green,
+                          ),
+                        ),
+                      ),
+              ),
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: _ink,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2),
+                ),
+                child: _uploadingPhoto
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(
+                        Icons.camera_alt,
+                        size: 14,
                         color: Colors.white,
-                        fontWeight: FontWeight.bold,
                       ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        Wrap(
+          alignment: WrapAlignment.center,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 8,
+          runSpacing: 4,
+          children: [
+            Text(
+              _displayName,
+              style: const TextStyle(
+                fontSize: 19,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: AppColors.greenSoft,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Text(
+                'Petani Aktif',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.green,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 3),
+        Text(
+          _email,
+          style: const TextStyle(fontSize: 12.5, color: AppColors.muted),
+        ),
+        const SizedBox(height: 14),
+        OutlinedButton.icon(
+          onPressed: _uploadingPhoto ? null : _changePhoto,
+          icon: const Icon(
+            Icons.photo_camera_outlined,
+            size: 16,
+            color: AppColors.green,
+          ),
+          style: OutlinedButton.styleFrom(
+            backgroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(22),
+            ),
+            side: const BorderSide(color: AppColors.green),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+          ),
+          label: const Text(
+            'Ganti foto dari galeri atau kamera',
+            style: TextStyle(
+              fontSize: 12,
+              color: AppColors.green,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _sectionLabel(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontSize: 11,
+          letterSpacing: 0.8,
+          fontWeight: FontWeight.w700,
+          color: AppColors.muted,
+        ),
+      ),
+    );
+  }
+
+  Widget _card(List<Widget> children) {
+    final items = <Widget>[];
+    for (var i = 0; i < children.length; i++) {
+      if (i > 0) {
+        items.add(const Divider(height: 1, indent: 68, endIndent: 14));
+      }
+      items.add(children[i]);
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(10),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(children: items),
+    );
+  }
+
+  Widget _tile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    Widget? trailing,
+    VoidCallback? onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        child: Row(
+          children: [
+            IconBox(icon: icon, size: 40, radius: 12),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: AppColors.muted,
                     ),
                   ),
                 ],
               ),
             ),
+            if (trailing != null) ...[
+              const SizedBox(width: 8),
+              trailing,
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _switch(bool value, ValueChanged<bool> onChanged) {
+    return Switch(
+      value: value,
+      onChanged: onChanged,
+      activeColor: Colors.white,
+      activeTrackColor: _ink,
+    );
+  }
+
+  Widget _buildSecurityCard() {
+    return _card([
+      _tile(
+        icon: Icons.fingerprint,
+        title: 'Login Biometrik',
+        subtitle: 'Gunakan sidik jari atau pemindai wajah',
+        trailing: _switch(_bioEnabled, _setBiometric),
+        onTap: () => _setBiometric(!_bioEnabled),
+      ),
+      _tile(
+        icon: Icons.notifications_none_rounded,
+        title: 'Notifikasi Game & Kebun',
+        subtitle: 'Siram tanamanmu dan kumpulkan poin panen',
+        trailing: _switch(_notiEnabled, _setNotifications),
+        onTap: () => _setNotifications(!_notiEnabled),
+      ),
+    ]);
+  }
+
+  Widget _buildDataCard() {
+    return _card([
+      _tile(
+        icon: Icons.yard_outlined,
+        title: 'Tanaman Saya',
+        subtitle: 'Kelola informasi tanaman milikmu',
+        trailing: const Icon(Icons.chevron_right, color: AppColors.muted),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const TanamanSayaScreen()),
+          );
+        },
+      ),
+      _tile(
+        icon: Icons.sync_rounded,
+        title: 'Sinkronisasi Data',
+        subtitle: 'Foto profil tersimpan di database online',
+        trailing: const Icon(Icons.check_circle, color: AppColors.green),
+      ),
+    ]);
+  }
+
+  Widget _buildLogoutButton() {
+    return ElevatedButton.icon(
+      onPressed: () => showLogoutConfirmation(context),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: const Color(0xFFC0392B),
+        elevation: 4,
+        shadowColor: const Color(0xFFC0392B).withAlpha(120),
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+        ),
+      ),
+      icon: const Icon(Icons.logout, color: Colors.white, size: 18),
+      label: const Text(
+        'Keluar dari akun',
+        style: TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+          fontSize: 14,
+        ),
+      ),
     );
   }
 }
