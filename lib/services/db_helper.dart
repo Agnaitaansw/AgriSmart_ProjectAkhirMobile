@@ -16,7 +16,7 @@ class DbHelper {
     final path = join(await getDatabasesPath(), 'agrismart.db');
     return openDatabase(
       path,
-      version: 4,
+      version: 5,
       onCreate: (db, _) async {
         await db.execute('''
           CREATE TABLE users (
@@ -41,10 +41,13 @@ class DbHelper {
           await db.execute(
               'ALTER TABLE user_rewards ADD COLUMN last_watered_at TEXT');
         }
-        if (oldVersion >= 2) {
+        // hanya dari versi 2/3 (jangan dari 4, supaya tanaman user tidak hilang)
+        if (oldVersion >= 2 && oldVersion < 4) {
           await db.execute('DROP TABLE IF EXISTS user_plants');
         }
         await _buatTabelGame(db);
+        // Versi 5: kolom tx_hash (hash transaksi di blockchain)
+        await _tambahKolomJikaBelum(db, 'blockchain_logs', 'tx_hash', 'TEXT');
       },
     );
   }
@@ -95,9 +98,17 @@ class DbHelper {
         timestamp TEXT NOT NULL,
         previous_hash TEXT NOT NULL,
         current_hash TEXT NOT NULL,
+        tx_hash TEXT,
         synced INTEGER NOT NULL DEFAULT 0
       )
     ''');
+  }
+
+  Future<void> _tambahKolomJikaBelum(
+      Database db, String tabel, String kolom, String tipe) async {
+    final info = await db.rawQuery('PRAGMA table_info($tabel)');
+    final ada = info.any((c) => c['name'] == kolom);
+    if (!ada) await db.execute('ALTER TABLE $tabel ADD COLUMN $kolom $tipe');
   }
 
   /// Simpan akun dengan id yang SAMA dengan id di Supabase.

@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import '../services/blockchain_config.dart';
 import '../services/blockchain_service.dart';
 import '../services/sesi_user.dart';
 import '../utils/constants.dart';
@@ -16,6 +18,16 @@ class _BlockchainLogScreenState extends State<BlockchainLogScreen> {
   bool _isLoading = true;
   List<Map<String, dynamic>> _logs = [];
   String? _errorMessage;
+  StatusOnChain? _status;
+
+  Future<void> _muatStatus() async {
+    final s = await BlockchainService.statusOnChain(await idUserLogin());
+    if (!mounted) return;
+    setState(() => _status = s);
+  }
+
+  String _pendekkan(String h) =>
+      h.length > 18 ? '${h.substring(0, 10)}...${h.substring(h.length - 6)}' : h;
 
   @override
   void initState() {
@@ -35,7 +47,10 @@ class _BlockchainLogScreenState extends State<BlockchainLogScreen> {
           await BlockchainService.ambilRiwayat(await idUserLogin());
 
       // Kirim baris yang belum terkirim ke Supabase (kalau ada koneksi)
-      unawaited(BlockchainService.sinkronkan());
+      unawaited(BlockchainService.sinkronkan().whenComplete(() {
+        if (mounted) setState(() {}); // tampilkan error kalau ada
+      }));
+      unawaited(_muatStatus());
 
       if (!mounted) return;
       setState(() {
@@ -66,11 +81,35 @@ class _BlockchainLogScreenState extends State<BlockchainLogScreen> {
         const Padding(
           padding: EdgeInsets.only(bottom: 12),
           child: Text(
-            'Terverifikasi aman menggunakan SHA-256 Distributed Ledger',
+            'Dicatat lewat smart contract di jaringan Ethereum Sepolia (testnet)',
             style: TextStyle(fontSize: 10, color: AppColors.muted),
             textAlign: TextAlign.center,
           ),
         ),
+        if (BlockchainService.errorTerakhir != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: AppCard(
+              child: SelectableText(
+                'Gagal kirim ke blockchain:\n${BlockchainService.errorTerakhir}',
+                style: const TextStyle(fontSize: 10, color: Colors.red),
+                maxLines: 8,
+              ),
+            ),
+          ),
+        if (_status != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: AppCard(
+              child: Text(
+                'Saldo di blockchain: ${_status!.saldo} poin  •  '
+                '${_status!.jumlah} catatan  •  '
+                '${_status!.valid ? 'Rantai valid ✓' : 'Rantai TIDAK valid ✗'}',
+                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
         if (_isLoading)
           const Center(
             child: Padding(
@@ -142,10 +181,36 @@ class _BlockchainLogScreenState extends State<BlockchainLogScreen> {
                           const SizedBox(height: 4),
                           Text(log['action_type'] ?? '', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                           const SizedBox(height: 4),
-                          Text(
-                            'Hash: ${log['current_hash'] ?? '0x0000...0000'}',
-                            style: const TextStyle(fontSize: 9, color: Colors.grey, fontFamily: 'monospace'),
-                          ),
+                          Builder(builder: (context) {
+                            final tx = (log['tx_hash'] ?? '') as String;
+                            final selesai = log['synced'] == 1;
+                            final String teks;
+                            if (tx.isNotEmpty && selesai) {
+                              teks = '✓ Terkonfirmasi  Tx: ${_pendekkan(tx)}  (ketuk untuk salin link)';
+                            } else if (tx.isNotEmpty) {
+                              teks = '⏳ Menunggu konfirmasi jaringan  Tx: ${_pendekkan(tx)}';
+                            } else if (selesai) {
+                              teks = 'Catatan lama (sebelum blockchain sungguhan)';
+                            } else {
+                              teks = '⏳ Antre dikirim ke blockchain';
+                            }
+                            return GestureDetector(
+                              onTap: tx.isEmpty
+                                  ? null
+                                  : () {
+                                      Clipboard.setData(ClipboardData(
+                                          text: '${BlockchainConfig.explorerTx}$tx'));
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(
+                                              content: Text('Link Etherscan disalin')));
+                                    },
+                              child: Text(
+                                teks,
+                                style: const TextStyle(
+                                    fontSize: 9, color: Colors.grey, fontFamily: 'monospace'),
+                              ),
+                            );
+                          }),
                         ],
                       ),
                     ),

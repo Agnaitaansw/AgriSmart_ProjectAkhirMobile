@@ -1,14 +1,31 @@
-
 import 'dart:async';
 import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:web3dart/web3dart.dart';
 
+import 'blockchain_config.dart';
 import 'db_helper.dart';
 
-/// Riwayat poin disimpan di SQLite dan disinkronkan dengan Supabase.
+/// Ringkasan data user yang dibaca langsung dari smart contract.
+class StatusOnChain {
+  final BigInt saldo;
+  final BigInt jumlah;
+  final bool valid;
+  const StatusOnChain(this.saldo, this.jumlah, this.valid);
+}
+
+/// Riwayat poin di blockchain Sepolia lewat smart contract PoinLedger.
+///
+/// Alur (offline-first):
+///  1. catat() -> simpan ke SQLite dulu (synced = 0), supaya aplikasi tetap cepat
+///  2. sinkronkan() -> kirim transaksi ke kontrak, simpan tx_hash, tunggu
+///     konfirmasi jaringan, lalu salin ke Supabase dan tandai synced = 1
+///
+/// Simpan di: lib/services/blockchain_service.dart
 class BlockchainService {
   BlockchainService._();
 
@@ -17,8 +34,27 @@ class BlockchainService {
 
   static final String _hashAwal = '0' * 64;
   static bool _sedangSinkron = false;
+  static bool _perluUlang = false;
 
-  /// Mencatat satu transaksi poin milik pengguna.
+  /// Alasan kegagalan terakhir (ditampilkan di layar riwayat). null = tidak ada masalah.
+  static String? errorTerakhir;
+
+  static Web3Client? _klien;
+  static Web3Client get _web3 =>
+      _klien ??= Web3Client(BlockchainConfig.rpcUrl, http.Client());
+
+  static final DeployedContract _kontrak = DeployedContract(
+    ContractAbi.fromJson(BlockchainConfig.abi, 'PoinLedger'),
+    EthereumAddress.fromHex(BlockchainConfig.contractAddress),
+  );
+
+  static EthPrivateKey get _dompet =>
+      EthPrivateKey.fromHex(BlockchainConfig.privateKey);
+
+  // ───────────────────────── CATAT ─────────────────────────
+
+  /// Catat satu transaksi poin milik [userId].
+  /// [poin] selalu positif; tanda +/- ditentukan oleh [tipe].
   static Future<void> catat({
     required int userId,
     required int poin,
@@ -37,15 +73,12 @@ class BlockchainService {
       orderBy: 'id DESC',
       limit: 1,
     );
+    final previousHash =
+        terakhir.isEmpty ? _hashAwal : terakhir.first['current_hash'] as String;
 
-    final previousHash = terakhir.isEmpty
-        ? _hashAwal
-        : terakhir.first['current_hash'] as String;
-
+    // Hash lokal (cadangan saat offline); bukti utamanya ada di tx_hash on-chain
     final currentHash = sha256
-        .convert(
-          utf8.encode('$previousHash|$deskripsi|$jumlah|$waktu'),
-        )
+        .convert(utf8.encode('$previousHash|$deskripsi|$jumlah|$waktu'))
         .toString();
 
     await db.insert('blockchain_logs', {
@@ -55,181 +88,145 @@ class BlockchainService {
       'timestamp': waktu,
       'previous_hash': previousHash,
       'current_hash': currentHash,
+      'tx_hash': null,
       'synced': 0,
     });
 
-    // Tetap simpan transaksi lokal meskipun server sedang offline.
-    unawaited(sinkronkan(userId: userId));
+    unawaited(sinkronkan());
   }
 
-  /// Membaca riwayat lokal milik pengguna yang sedang login.
-  static Future<List<Map<String, dynamic>>> ambilRiwayat(
-    int userId,
-  ) async {
+  /// Riwayat milik [userId] dari SQLite, terbaru di atas.
+  static Future<List<Map<String, dynamic>>> ambilRiwayat(int userId) async {
     final db = await DbHelper.instance.database;
-
     final rows = await db.query(
       'blockchain_logs',
       where: 'user_id = ?',
       whereArgs: [userId],
       orderBy: 'id DESC',
     );
-
     return List<Map<String, dynamic>>.from(rows);
   }
 
-  /// Sinkronisasi dua arah:
-  /// 1. Mengirim transaksi lokal yang belum tersinkron.
-  /// 2. Mengambil transaksi lama milik pengguna dari Supabase.
-  static Future<void> sinkronkan({int? userId}) async {
-    if (_sedangSinkron) return;
+  // ───────────────────────── KIRIM KE BLOCKCHAIN ─────────────────────────
 
+  /// Kirim catatan yang belum terkonfirmasi ke blockchain (berurutan).
+  /// Aman dipanggil berkali-kali; kalau offline, baris tetap menunggu.
+  static Future<void> sinkronkan() async {
+    if (!BlockchainConfig.siap) {
+      errorTerakhir =
+          'blockchain_config.dart belum diisi benar: alamat kontrak harus diawali 0x dan private key tidak boleh masih ISI_... (setelah mengubah, stop lalu jalankan ulang aplikasi).';
+      debugPrint(errorTerakhir);
+      return;
+    }
+    if (_sedangSinkron) {
+      _perluUlang = true; // ada catatan baru saat proses berjalan
+      return;
+    }
     _sedangSinkron = true;
-
+    errorTerakhir = null;
     try {
-      final db = await DbHelper.instance.database;
-      final supabase = Supabase.instance.client;
-
-      // LANGKAH 1: Kirim transaksi lokal yang belum tersinkron.
-      final lokalBelumTerkirim = await db.query(
-        'blockchain_logs',
-        where: userId == null
-            ? 'synced = 0'
-            : 'synced = 0 AND user_id = ?',
-        whereArgs: userId == null ? null : [userId],
-        orderBy: 'id ASC',
-      );
-
-      for (final row in lokalBelumTerkirim) {
-        try {
-          final hash = row['current_hash'];
-
-          // Hindari mengirim ulang jika hash sudah ada di server.
-          if (hash != null) {
-            final sudahAda = await supabase
-                .from('blockchain_logs')
-                .select('id')
-                .eq('current_hash', hash)
-                .limit(1);
-
-            if (sudahAda.isNotEmpty) {
-              await db.update(
-                'blockchain_logs',
-                {'synced': 1},
-                where: 'id = ?',
-                whereArgs: [row['id']],
-              );
-              continue;
-            }
-          }
-
-          await supabase.from('blockchain_logs').insert({
-            'user_id': row['user_id'],
-            'action_type': row['action_type'],
-            'points_amount': row['points_amount'],
-            'timestamp': row['timestamp'],
-            'previous_hash': row['previous_hash'],
-            'current_hash': row['current_hash'],
-            'synced': 1,
-          });
-
-          await db.update(
-            'blockchain_logs',
-            {'synced': 1},
-            where: 'id = ?',
-            whereArgs: [row['id']],
-          );
-        } catch (e) {
-          debugPrint(
-            'Gagal mengirim transaksi ${row['id']}: $e',
-          );
-          // Transaksi tetap synced = 0 untuk dicoba lagi nanti.
-        }
-      }
-
-      // LANGKAH 2: Ambil transaksi lama milik pengguna dari Supabase.
-      if (userId != null) {
-        final dataServer = await supabase
-            .from('blockchain_logs')
-            .select(
-              'user_id, action_type, points_amount, timestamp, '
-              'previous_hash, current_hash',
-            )
-            .eq('user_id', userId);
-
-        final transaksi = List<Map<String, dynamic>>.from(dataServer);
-
-        // Urutkan dari paling lama supaya ID lokal mengikuti urutan waktu.
-        transaksi.sort((a, b) {
-          return _parseWaktu(a['timestamp']?.toString())
-              .compareTo(_parseWaktu(b['timestamp']?.toString()));
-        });
-
-        for (final row in transaksi) {
-          final hash = row['current_hash'];
-
-          if (hash == null) continue;
-
-          // Cek hash agar transaksi lama tidak diduplikasi.
-          final sudahAda = await db.query(
-            'blockchain_logs',
-            columns: ['id'],
-            where: 'current_hash = ? AND user_id = ?',
-            whereArgs: [hash, userId],
-            limit: 1,
-          );
-
-          if (sudahAda.isNotEmpty) {
-            continue;
-          }
-
-          await db.insert('blockchain_logs', {
-            'user_id': userId,
-            'action_type': row['action_type'],
-            'points_amount': row['points_amount'],
-            'timestamp': row['timestamp'],
-            'previous_hash': row['previous_hash'],
-            'current_hash': hash,
-            'synced': 1,
-          });
-        }
-      }
+      do {
+        _perluUlang = false;
+        await _prosesAntrean();
+      } while (_perluUlang);
     } catch (e) {
-      // Jika offline atau server gagal, riwayat lokal tetap dapat dibaca.
+      errorTerakhir = e.toString();
       debugPrint('Sinkronisasi blockchain tertunda: $e');
     } finally {
       _sedangSinkron = false;
     }
   }
 
-  static DateTime _parseWaktu(String? waktu) {
-    if (waktu == null || waktu.isEmpty) {
-      return DateTime.fromMillisecondsSinceEpoch(0);
+  static Future<void> _prosesAntrean() async {
+    final db = await DbHelper.instance.database;
+    final rows =
+        await db.query('blockchain_logs', where: 'synced = 0', orderBy: 'id ASC');
+
+    for (final r in rows) {
+      var txHash = r['tx_hash'] as String?;
+
+      // 1. Kirim transaksi kalau belum pernah dikirim
+      if (txHash == null || txHash.isEmpty) {
+        txHash = await _web3.sendTransaction(
+          _dompet,
+          Transaction.callContract(
+            contract: _kontrak,
+            function: _kontrak.function('catat'),
+            parameters: [
+              BigInt.from(r['user_id'] as int),
+              BigInt.from(r['points_amount'] as int),
+              r['action_type'] as String,
+            ],
+          ),
+          chainId: BlockchainConfig.chainId,
+        );
+        await db.update('blockchain_logs', {'tx_hash': txHash},
+            where: 'id = ?', whereArgs: [r['id']]);
+      }
+
+      // 2. Tunggu konfirmasi (Sepolia ~12 detik per blok)
+      final receipt = await _tungguReceipt(txHash);
+      if (receipt == null) return; // belum terkonfirmasi, dicoba lagi nanti
+      if (receipt.status != true) {
+        // Transaksi gagal (revert): kosongkan tx_hash supaya dikirim ulang
+        await db.update('blockchain_logs', {'tx_hash': null},
+            where: 'id = ?', whereArgs: [r['id']]);
+        return;
+      }
+
+      // 3. Salin ke Supabase sebagai cadangan, lalu tandai selesai
+      await Supabase.instance.client.from('blockchain_logs').insert({
+        'user_id': r['user_id'],
+        'action_type': r['action_type'],
+        'points_amount': r['points_amount'],
+        'timestamp': r['timestamp'],
+        'previous_hash': r['previous_hash'],
+        'current_hash': r['current_hash'],
+        'tx_hash': txHash,
+        'synced': 1,
+      });
+      await db.update('blockchain_logs', {'synced': 1},
+          where: 'id = ?', whereArgs: [r['id']]);
     }
+  }
 
-    // Format yang digunakan aplikasi: dd/MM/yyyy HH:mm
+  static Future<TransactionReceipt?> _tungguReceipt(String txHash) async {
+    for (var i = 0; i < 15; i++) {
+      final receipt = await _web3.getTransactionReceipt(txHash);
+      if (receipt != null) return receipt;
+      await Future.delayed(const Duration(seconds: 4));
+    }
+    return null;
+  }
+
+  // ───────────────────────── BACA DARI KONTRAK ─────────────────────────
+
+  /// Saldo, jumlah catatan, dan hasil verifikasi rantai langsung dari smart
+  /// contract. Mengembalikan null kalau belum dikonfigurasi atau offline.
+  static Future<StatusOnChain?> statusOnChain(int userId) async {
+    if (!BlockchainConfig.siap) return null;
     try {
-      final bagian = waktu.split(' ');
-      final tanggal = bagian[0].split('/');
-      final jam = bagian.length > 1 ? bagian[1].split(':') : ['0', '0'];
-
-      return DateTime(
-        int.parse(tanggal[2]),
-        int.parse(tanggal[1]),
-        int.parse(tanggal[0]),
-        int.parse(jam[0]),
-        int.parse(jam[1]),
-      );
-    } catch (_) {
-      return DateTime.tryParse(waktu) ??
-          DateTime.fromMillisecondsSinceEpoch(0);
+      final id = [BigInt.from(userId)];
+      final saldo = await _web3.call(
+          contract: _kontrak, function: _kontrak.function('saldo'), params: id);
+      final jumlah = await _web3.call(
+          contract: _kontrak,
+          function: _kontrak.function('jumlahCatatan'),
+          params: id);
+      final valid = await _web3.call(
+          contract: _kontrak,
+          function: _kontrak.function('verifikasi'),
+          params: id);
+      return StatusOnChain(
+          saldo.first as BigInt, jumlah.first as BigInt, valid.first as bool);
+    } catch (e) {
+      debugPrint('Gagal membaca kontrak: $e');
+      return null;
     }
   }
 
   static String _formatWaktu(DateTime t) {
     String dua(int n) => n.toString().padLeft(2, '0');
-
-    return '${dua(t.day)}/${dua(t.month)}/${t.year} '
-        '${dua(t.hour)}:${dua(t.minute)}';
+    return '${dua(t.day)}/${dua(t.month)}/${t.year} ${dua(t.hour)}:${dua(t.minute)}';
   }
 }
