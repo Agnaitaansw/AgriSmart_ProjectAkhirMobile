@@ -1,8 +1,5 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/user_model.dart';
@@ -104,11 +101,26 @@ class _BerandaScreenState extends State<BerandaScreen> {
     _getCurrentLocation();
   }
 
-  /// Ambil foto profil yang tersimpan (kunci sama dengan ProfilScreen).
+  /// Ambil URL foto profil dari sumber yang sama dengan ProfilScreen.
   Future<void> _loadProfilePhoto() async {
-    final userId = Supabase.instance.client.auth.currentUser?.id ?? 'guest';
-    final prefs = await SharedPreferences.getInstance();
-    profilePhotoNotifier.value = prefs.getString('profile_photo_$userId');
+    try {
+      final appUser = await _auth.currentUser();
+
+      if (!mounted || appUser == null) return;
+
+      final row = await Supabase.instance.client
+          .from('users')
+          .select('profile_picture_url')
+          .eq('email', appUser.email)
+          .maybeSingle();
+
+      if (!mounted) return;
+
+      profilePhotoNotifier.value =
+          row?['profile_picture_url'] as String?;
+    } catch (e) {
+      debugPrint('Gagal memuat foto profil: $e');
+    }
   }
 
   Future<void> _loadUserSession() async {
@@ -324,9 +336,9 @@ class _BerandaScreenState extends State<BerandaScreen> {
                 onTap: () => _open(context, const ProfilScreen()),
                 child: ValueListenableBuilder<String?>(
                   valueListenable: profilePhotoNotifier,
-                  builder: (context, photoPath, _) {
+                  builder: (context, photoUrl, _) {
                     final hasPhoto =
-                        photoPath != null && File(photoPath).existsSync();
+                        photoUrl != null && photoUrl.trim().isNotEmpty;
 
                     return Container(
                       width: 50,
@@ -337,7 +349,7 @@ class _BerandaScreenState extends State<BerandaScreen> {
                         border: Border.all(color: AppColors.green, width: 1.4),
                         image: hasPhoto
                             ? DecorationImage(
-                                image: FileImage(File(photoPath)),
+                                image: NetworkImage(photoUrl!),
                                 fit: BoxFit.cover,
                               )
                             : null,

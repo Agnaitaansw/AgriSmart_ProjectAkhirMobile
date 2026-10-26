@@ -96,6 +96,9 @@ class _ProfilScreenState extends State<ProfilScreen> {
 
       if (!mounted) return;
 
+      // Sinkronkan foto profil dengan Home Page.
+      profilePhotoNotifier.value = photoUrl;
+
       setState(() {
         _photoUrl = photoUrl;
         _bioEnabled = prefs.getBool(_bioPreferenceKey) ?? false;

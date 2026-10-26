@@ -6,7 +6,6 @@ import '../utils/constants.dart';
 import '../utils/crop_recommendation.dart';
 import '../widgets/common.dart';
 import '../services/plant_manager.dart';
-import '../services/plant_api_service.dart';
 
 class TanamanDetailScreen extends StatefulWidget {
   final CropRecommendation crop;
@@ -27,77 +26,14 @@ class _TanamanDetailScreenState extends State<TanamanDetailScreen> {
   bool _saving = false;
 
   late final _CropInfo _info;
-  bool _apiLoading = false;
-  String? _apiError;
-  Map<String, dynamic>? _apiPlant;
 
   @override
   void initState() {
     super.initState();
     _info = _getInfo(widget.crop.name);
     _checkSaved();
-    _loadApiProfile();
   }
 
-  Future<void> _loadApiProfile() async {
-    if (!PlantApiService.isConfigured) {
-      if (mounted) setState(() => _apiError = 'API belum dikonfigurasi.');
-      return;
-    }
-    if (mounted) setState(() {
-      _apiLoading = true;
-      _apiError = null;
-    });
-    try {
-      final plant = await PlantApiService.getPlantProfile(widget.crop.name);
-      if (!mounted) return;
-      setState(() {
-        _apiPlant = plant;
-        _apiLoading = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _apiError = e.toString().replaceFirst('PlantApiException: ', '');
-        _apiLoading = false;
-      });
-    }
-  }
-
-  String _apiValue(dynamic value) {
-    if (value == null) return '';
-    if (value is List) return value.map((e) => e.toString()).join(', ');
-    return value.toString().trim();
-  }
-
-  String _apiNested(List<String> keys) {
-    dynamic value = _apiPlant;
-    for (final key in keys) {
-      if (value is Map) {
-        value = value[key];
-      } else {
-        return '';
-      }
-    }
-    return _apiValue(value);
-  }
-
-  Widget _apiRow(String title, String value) {
-    if (value.isEmpty) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(flex: 2, child: Text(title,
-            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700))),
-          const SizedBox(width: 8),
-          Expanded(flex: 3, child: Text(value,
-            style: const TextStyle(fontSize: 11, height: 1.4, color: AppColors.muted))),
-        ],
-      ),
-    );
-  }
 
   // Memeriksa apakah tanaman sudah tersimpan.
   Future<void> _checkSaved() async {
@@ -506,51 +442,7 @@ class _TanamanDetailScreenState extends State<TanamanDetailScreen> {
             ],
           ),
         ),
-        const SizedBox(height: 14),
-        const Text(
-          'Informasi dari API tanaman',
-          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
-        ),
-        const SizedBox(height: 8),
-        AppCard(
-          child: _apiLoading
-              ? const Padding(
-                  padding: EdgeInsets.all(12),
-                  child: Center(child: CircularProgressIndicator()),
-                )
-              : _apiPlant != null
-                  ? Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _apiRow('Nama ilmiah', _apiValue(_apiPlant!['accepted_name'])),
-                        _apiRow('Nama umum', _apiValue(_apiPlant!['common_names'])),
-                        _apiRow('Famili', _apiNested(['taxonomy', 'family'])),
-                        _apiRow('Habitat', _apiNested(['native_habitat', 'customer_environment', 'summary'])),
-                        _apiRow('Siklus hidup', _apiValue(_apiPlant!['life_cycle'])),
-                        const SizedBox(height: 4),
-                        const Text(
-                          'Profil ini berasal dari Whats My Zone. Jadwal siram dan estimasi panen tetap memakai panduan lokal karena API tidak selalu memiliki data agronomi tanaman pangan.',
-                          style: TextStyle(fontSize: 10, height: 1.4, color: AppColors.muted),
-                        ),
-                      ],
-                    )
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Profil tanaman belum tersedia dari API.',
-                          style: TextStyle(fontWeight: FontWeight.w700)),
-                        const SizedBox(height: 5),
-                        Text(_apiError ?? 'Informasi perawatan lokal tetap tersedia.',
-                          style: const TextStyle(fontSize: 11, color: AppColors.muted)),
-                        const SizedBox(height: 8),
-                        OutlinedButton.icon(
-                          onPressed: _loadApiProfile,
-                          icon: const Icon(Icons.refresh),
-                          label: const Text('Coba lagi'),
-                        ),
-                      ],
-                    ),
-        ),
+
         const SizedBox(height: 14),
         const Text(
           'Tips perawatan',
