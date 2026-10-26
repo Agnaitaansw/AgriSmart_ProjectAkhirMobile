@@ -212,7 +212,7 @@ class _DashedRRectPainter extends CustomPainter {
 class AppBottomNav extends StatelessWidget {
   const AppBottomNav({super.key, this.currentIndex = 0});
 
-  /// 0 = Beranda, 1 = Profil, 2 = Saran P&M
+  /// 0 = Beranda, 1 = Profil, 2 = Saran PAM
   final int currentIndex;
 
   Future<void> _logout(BuildContext context) async {
@@ -282,7 +282,7 @@ class AppBottomNav extends StatelessWidget {
               _NavItem(
                 icon: Icons.chat_bubble_outline,
                 activeIcon: Icons.chat_bubble,
-                label: 'Saran P&M',
+                label: 'Saran PAM',
                 selected: currentIndex == 2,
                 onTap: () => _go(context, 2, const SaranPamScreen()),
               ),
@@ -377,7 +377,7 @@ class SubPageScaffold extends StatelessWidget {
   final List<Widget> children;
   final List<Widget>? actions;
 
-  /// Tab bottom nav yang aktif (0 = Beranda, 1 = Profil, 2 = Saran P&M).
+  /// Tab bottom nav yang aktif (0 = Beranda, 1 = Profil, 2 = Saran PAM).
   final int navIndex;
 
   @override
