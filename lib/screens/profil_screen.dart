@@ -10,7 +10,6 @@ import '../models/user_model.dart';
 import '../services/auth_service.dart';
 import '../utils/constants.dart';
 import '../widgets/common.dart';
-import 'logout_dialog.dart';
 import 'tanaman_saya_screen.dart';
 
 class ProfilScreen extends StatefulWidget {
@@ -368,8 +367,6 @@ class _ProfilScreenState extends State<ProfilScreen> {
                                 _sectionLabel('KELOLA DATA TANAMAN'),
                                 const SizedBox(height: 8),
                                 _buildDataCard(),
-                                const Spacer(flex: 3),
-                                _buildLogoutButton(),
                               ],
                             ),
                           ),
@@ -662,27 +659,5 @@ class _ProfilScreenState extends State<ProfilScreen> {
     ]);
   }
 
-  Widget _buildLogoutButton() {
-    return ElevatedButton.icon(
-      onPressed: () => showLogoutConfirmation(context),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFFC0392B),
-        elevation: 4,
-        shadowColor: const Color(0xFFC0392B).withAlpha(120),
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-        ),
-      ),
-      icon: const Icon(Icons.logout, color: Colors.white, size: 18),
-      label: const Text(
-        'Keluar dari akun',
-        style: TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.bold,
-          fontSize: 14,
-        ),
-      ),
-    );
-  }
+
 }
