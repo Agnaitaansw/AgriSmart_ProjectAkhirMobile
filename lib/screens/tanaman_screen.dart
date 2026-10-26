@@ -310,11 +310,6 @@ class _TanamanScreenState extends State<TanamanScreen> {
                           value: _formatDate(plant.estimatedHarvest),
                         ),
                         const SizedBox(height: 12),
-                        _PlantInfoRow(
-                          icon: Icons.notifications_active_outlined,
-                          title: 'Penyiraman berikutnya',
-                          value: _formatDate(plant.nextWatering),
-                        ),
                       ],
                     ),
                   ),
