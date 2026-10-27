@@ -3,8 +3,8 @@ import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
-import '../models/diagnosa_result.dart';
-
+/// Layanan chat FlorAI berbasis Gemini multimodal.
+/// API key diberikan melalui --dart-define, bukan ditulis langsung di kode.
 class DiagnosaService {
   static const String _apiKey =
       String.fromEnvironment('DIAGNOSA_API_KEY');
@@ -15,97 +15,148 @@ class DiagnosaService {
       'https://generativelanguage.googleapis.com/v1beta/models/'
       '$_model:generateContent';
 
-  static const String _prompt = '''
-Kamu adalah asisten diagnosis tanaman untuk petani Indonesia.
-Analisis foto dan/atau keluhan secara hati-hati. Jangan mengarang
-gejala atau memastikan diagnosis jika buktinya belum cukup.
-Gunakan bahasa Indonesia sederhana dan singkat. Berikan tindakan
-awal yang aman; jangan menyarankan pestisida tertentu tanpa dasar.
 
-Balas HANYA dalam JSON:
-{
-  "penyakit": "dugaan masalah, singkat",
-  "keyakinan": 0,
-  "penjelasan": "alasan utama, maksimal 2 kalimat",
-  "langkah": ["langkah 1", "langkah 2", "langkah 3"]
-}
-
-Maksimal 3 langkah. Keyakinan adalah perkiraan model, bukan
-hasil pengukuran akurasi. Jika bukti kurang, katakan belum pasti.
+  static const String _systemPrompt = '''
+Kamu adalah FlorAI, asisten konsultasi tanaman untuk pengguna Indonesia.
+Gunakan bahasa Indonesia yang ramah, jelas, praktis, dan tidak bertele-tele.
+Kamu boleh menjawab pertanyaan lanjutan dan mempertahankan konteks percakapan.
+Jika pengguna mengirim foto, periksa hanya ciri yang benar-benar terlihat.
+Jangan mengarang gejala atau memastikan penyakit jika bukti belum cukup.
+Jelaskan kemungkinan penyebab dengan tingkat kepastian yang wajar, lalu berikan
+langkah perawatan awal yang aman. Jangan merekomendasikan dosis atau pestisida
+spesifik tanpa informasi yang cukup. Jika perlu, tanyakan detail tambahan seperti
+jenis tanaman, pola penyebaran gejala, kondisi tanah, penyiraman, atau cuaca.
+Ingatkan pengguna bahwa analisis foto adalah panduan awal, bukan pengganti
+pemeriksaan langsung oleh penyuluh pertanian untuk kasus berat.
+Jawab sebagai percakapan biasa, bukan JSON dan bukan markdown table.
 ''';
 
-  Future<DiagnosaResult> analisis({
-    required String tanaman,
-    required String keluhan,
-    File? foto,
+  Future<String> chat({
+    required List<Map<String, dynamic>> history,
   }) async {
-    if (_apiKey.isEmpty) {
+    if (_apiKey.trim().isEmpty) {
       throw Exception(
         'API key belum diisi. Jalankan aplikasi dengan '
         '--dart-define=DIAGNOSA_API_KEY=KUNCI_KAMU',
       );
     }
 
-    if (foto == null && keluhan.trim().isEmpty) {
-      throw Exception('Unggah foto atau isi keluhan tanaman.');
+    if (history.isEmpty) {
+      throw Exception('Tulis pertanyaan atau unggah foto terlebih dahulu.');
     }
 
-    final parts = <Map<String, dynamic>>[];
+    // Batasi riwayat agar permintaan tidak membesar tanpa batas.
+    var recentHistory = history.length > 12
+        ? history.sublist(history.length - 12)
+        : List<Map<String, dynamic>>.from(history);
 
-    if (foto != null) {
-      final bytes = await foto.readAsBytes();
-      if (bytes.isEmpty) {
-        throw Exception('Foto kosong. Silakan pilih foto lain.');
+    // Gemini umumnya mengharapkan percakapan dimulai dari pesan pengguna.
+    if (recentHistory.isNotEmpty && recentHistory.first['role'] == 'model') {
+      recentHistory = recentHistory.sublist(1);
+    }
+
+    final contents = <Map<String, dynamic>>[];
+
+    for (final message in recentHistory) {
+      final role = message['role'] == 'model' ? 'model' : 'user';
+      final text = (message['text'] as String? ?? '').trim();
+      final photo = message['photo'];
+      final parts = <Map<String, dynamic>>[];
+
+      if (photo is File) {
+        final bytes = await photo.readAsBytes();
+        if (bytes.isEmpty) {
+          throw Exception('Foto kosong atau tidak bisa dibaca. Pilih foto lain.');
+        }
+        parts.add({
+          'inline_data': {
+            'mime_type': _mediaType(photo.path),
+            'data': base64Encode(bytes),
+          },
+        });
       }
 
-      parts.add({
-        'inline_data': {
-          'mime_type': _mediaType(foto.path),
-          'data': base64Encode(bytes),
-        },
+      if (text.isNotEmpty) {
+        parts.add({'text': text});
+      } else if (parts.isEmpty) {
+        continue;
+      }
+
+      contents.add({
+        'role': role,
+        'parts': parts,
       });
     }
 
-    parts.add({
-      'text': '''
-Jenis tanaman: ${tanaman.trim().isEmpty ? 'Belum diketahui' : tanaman.trim()}
-Keluhan: ${keluhan.trim().isEmpty ? 'Tidak ada; analisis dari foto.' : keluhan.trim()}
-''',
-    });
+    if (contents.isEmpty) {
+      throw Exception('Pesan tidak dapat diproses. Coba kirim ulang.');
+    }
 
-    final response = await http
-        .post(
-          Uri.parse(_endpoint),
-          headers: {
-            'Content-Type': 'application/json',
-            'x-goog-api-key': _apiKey,
-          },
-          body: jsonEncode({
-            'system_instruction': {
-              'parts': [{'text': _prompt}],
+    late final http.Response response;
+    try {
+      response = await http
+          .post(
+            Uri.parse(_endpoint),
+            headers: {
+              'Content-Type': 'application/json',
+              'x-goog-api-key': _apiKey,
             },
-            'contents': [
-              {'role': 'user', 'parts': parts},
-            ],
-            'generationConfig': {
-              'temperature': 0.2,
-              'maxOutputTokens': 1024,
-            },
-          }),
-        )
-        .timeout(const Duration(seconds: 60));
+            body: jsonEncode({
+              'system_instruction': {
+                'parts': [
+                  {'text': _systemPrompt}
+                ],
+              },
+              'contents': contents,
+              'generationConfig': {
+                'temperature': 0.4,
+                'maxOutputTokens': 1200,
+              },
+            }),
+          )
+          .timeout(const Duration(seconds: 60));
+    } on SocketException {
+      throw Exception('Tidak ada koneksi internet. Periksa jaringanmu.');
+    } on HttpException {
+      throw Exception('Permintaan ke layanan AI gagal. Coba lagi.');
+    } on FormatException {
+      throw Exception('Alamat layanan AI tidak valid.');
+    } catch (e) {
+      if (e.toString().contains('TimeoutException')) {
+        throw Exception('FlorAI membutuhkan waktu terlalu lama. Coba lagi.');
+      }
+      rethrow;
+    }
 
     if (response.statusCode != 200) {
-      if (response.statusCode == 429) {
-        throw Exception('Kuota Gemini habis atau terlalu banyak permintaan.');
+      String? apiMessage;
+      try {
+        final errorData = jsonDecode(utf8.decode(response.bodyBytes));
+        apiMessage = errorData['error']?['message']?.toString();
+      } catch (_) {
+        // Gunakan pesan umum jika respons error tidak berbentuk JSON.
+      }
+
+      if (response.statusCode == 400) {
+        throw Exception(
+          'Permintaan tidak dapat diproses. ${apiMessage ?? 'Periksa foto atau pesan.'}',
+        );
       }
       if (response.statusCode == 401 || response.statusCode == 403) {
-        throw Exception('API key tidak valid atau akses tidak diizinkan.');
+        throw Exception('API key tidak valid atau akses Gemini tidak diizinkan.');
       }
       if (response.statusCode == 404) {
-        throw Exception('Model Gemini tidak ditemukan. Periksa nama model.');
+        throw Exception(
+          'Model Gemini tidak ditemukan. Periksa nama model dan akses API.',
+        );
       }
-      throw Exception('Gemini mengalami kendala (${response.statusCode}).');
+      if (response.statusCode == 429) {
+        throw Exception('Kuota AI sedang habis atau permintaan terlalu banyak. Coba lagi nanti.');
+      }
+      throw Exception(
+        'Layanan AI mengalami kendala (${response.statusCode}). '
+        '${apiMessage ?? ''}'.trim(),
+      );
     }
 
     final Map<String, dynamic> data;
@@ -113,12 +164,14 @@ Keluhan: ${keluhan.trim().isEmpty ? 'Tidak ada; analisis dari foto.' : keluhan.t
       data = jsonDecode(utf8.decode(response.bodyBytes))
           as Map<String, dynamic>;
     } catch (_) {
-      throw Exception('Respons Gemini tidak valid.');
+      throw Exception('Respons dari FlorAI tidak dapat dibaca.');
     }
 
     final candidates = data['candidates'] as List?;
     if (candidates == null || candidates.isEmpty) {
-      throw Exception('Gemini tidak memberikan hasil. Coba lagi.');
+      throw Exception(
+        'FlorAI belum bisa menjawab pesan ini. Coba ubah pertanyaan atau foto.',
+      );
     }
 
     final candidate = candidates.first as Map<String, dynamic>;
@@ -134,38 +187,19 @@ Keluhan: ${keluhan.trim().isEmpty ? 'Tidak ada; analisis dari foto.' : keluhan.t
         '';
 
     if (answer.isEmpty) {
-      throw Exception('Hasil analisis kosong atau tidak dapat dibaca.');
+      throw Exception(
+        'FlorAI tidak menghasilkan jawaban teks. Coba pertanyaan lain.',
+      );
     }
 
-    final result = DiagnosaResult.fromJson(_extractJson(answer));
-    return result;
-  }
-
-  Map<String, dynamic> _extractJson(String text) {
-    final clean = text
-        .replaceAll('```json', '')
-        .replaceAll('```', '')
-        .trim();
-
-    final start = clean.indexOf('{');
-    final end = clean.lastIndexOf('}');
-
-    if (start < 0 || end <= start) {
-      throw Exception('Format hasil diagnosis tidak valid. Coba lagi.');
-    }
-
-    try {
-      return jsonDecode(clean.substring(start, end + 1))
-          as Map<String, dynamic>;
-    } catch (_) {
-      throw Exception('Hasil diagnosis tidak bisa dibaca. Coba lagi.');
-    }
+    return answer;
   }
 
   String _mediaType(String path) {
-    final p = path.toLowerCase();
-    if (p.endsWith('.png')) return 'image/png';
-    if (p.endsWith('.webp')) return 'image/webp';
+    final lowerPath = path.toLowerCase();
+    if (lowerPath.endsWith('.png')) return 'image/png';
+    if (lowerPath.endsWith('.webp')) return 'image/webp';
+    if (lowerPath.endsWith('.gif')) return 'image/gif';
     return 'image/jpeg';
   }
 }

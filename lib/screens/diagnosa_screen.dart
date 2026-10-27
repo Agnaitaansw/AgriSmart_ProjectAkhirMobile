@@ -3,10 +3,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../models/diagnosa_result.dart';
 import '../services/diagnosa_service.dart';
 import '../utils/constants.dart';
-import '../widgets/common.dart';
 
 class DiagnosaScreen extends StatefulWidget {
   const DiagnosaScreen({super.key});
@@ -15,56 +13,71 @@ class DiagnosaScreen extends StatefulWidget {
   State<DiagnosaScreen> createState() => _DiagnosaScreenState();
 }
 
+class _ChatMessage {
+  final String role; // 'user' atau 'model'
+  final String text;
+  final File? photo;
+
+  const _ChatMessage({
+    required this.role,
+    required this.text,
+    this.photo,
+  });
+
+  bool get isUser => role == 'user';
+}
+
 class _DiagnosaScreenState extends State<DiagnosaScreen> {
   final _controller = TextEditingController();
+  final _scrollController = ScrollController();
   final _picker = ImagePicker();
   final _service = DiagnosaService();
 
-  File? _foto;
+  final List<_ChatMessage> _messages = [];
+  File? _pendingPhoto;
   bool _loading = false;
-  DiagnosaResult? _result;
   String? _error;
 
-  static const _contohGejala = <String>[
+  static const _darkGreen = Color(0xFF1E5A43);
+  static const _green = Color(0xFF2F7957);
+  static const _paleGreen = Color(0xFFE7F3E9);
+  static const _page = Color(0xFFF7FAF7);
+
+  static const _suggestions = <String>[
     'Daun menguning',
-    'Bercak coklat di daun',
-    'Tanaman layu',
-    'Buah busuk',
+    'Cara merawat tanaman',
+    'Bercak pada daun',
   ];
 
   @override
   void dispose() {
     _controller.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
-  Future<void> _pickPhoto(ImageSource source) async {
+  Future<void> _choosePhoto(ImageSource source) async {
     try {
-      final x = await _picker.pickImage(
+      final picked = await _picker.pickImage(
         source: source,
-        maxWidth: 1280,
-        imageQuality: 75,
+        maxWidth: 1600,
+        imageQuality: 82,
       );
-
-      if (x == null || !mounted) return;
-
+      if (picked == null || !mounted) return;
       setState(() {
-        _foto = File(x.path);
-        _result = null;
+        _pendingPhoto = File(picked.path);
         _error = null;
       });
     } catch (_) {
-      if (mounted) {
-        showSoon(context, 'Tidak bisa mengakses kamera/galeri');
-      }
+      if (mounted) _showMessage('Foto tidak dapat diakses. Coba lagi.');
     }
   }
 
-  void _showPhotoSheet() {
-    showModalBottomSheet(
+  void _showPhotoOptions() {
+    showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
-      builder: (_) => SafeArea(
+      builder: (sheetContext) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -72,16 +85,16 @@ class _DiagnosaScreenState extends State<DiagnosaScreen> {
               leading: const Icon(Icons.photo_camera_outlined),
               title: const Text('Ambil foto'),
               onTap: () {
-                Navigator.pop(context);
-                _pickPhoto(ImageSource.camera);
+                Navigator.pop(sheetContext);
+                _choosePhoto(ImageSource.camera);
               },
             ),
             ListTile(
               leading: const Icon(Icons.photo_library_outlined),
               title: const Text('Pilih dari galeri'),
               onTap: () {
-                Navigator.pop(context);
-                _pickPhoto(ImageSource.gallery);
+                Navigator.pop(sheetContext);
+                _choosePhoto(ImageSource.gallery);
               },
             ),
           ],
@@ -90,550 +103,542 @@ class _DiagnosaScreenState extends State<DiagnosaScreen> {
     );
   }
 
-  Future<void> _analyze() async {
-    final keluhan = _controller.text.trim();
+  Future<void> _sendMessage({String? suggestedText}) async {
+    final text = (suggestedText ?? _controller.text).trim();
+    final photo = _pendingPhoto;
 
-    if (keluhan.isEmpty && _foto == null) {
-      showSoon(context, 'Tulis gejala atau unggah foto dulu ya');
-      return;
-    }
+    if (text.isEmpty && photo == null) return;
+    if (_loading) return;
 
     FocusScope.of(context).unfocus();
 
     setState(() {
+      _messages.add(_ChatMessage(role: 'user', text: text, photo: photo));
+      _controller.clear();
+      _pendingPhoto = null;
       _loading = true;
       _error = null;
-      _result = null;
     });
+    _scrollToBottom();
 
     try {
-      final r = await _service.analisis(
-        tanaman: '',
-        keluhan: keluhan,
-        foto: _foto,
-      );
+      final history = _messages
+          .map((message) => <String, dynamic>{
+                'role': message.role,
+                'text': message.text,
+                'photo': message.photo,
+              })
+          .toList();
 
+      final answer = await _service.chat(history: history);
       if (!mounted) return;
 
       setState(() {
-        _result = r;
+        _messages.add(_ChatMessage(role: 'model', text: answer));
       });
-    } on SocketException {
-      if (mounted) {
-        setState(() {
-          _error = 'Tidak ada koneksi internet.';
-        });
-      }
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _error = e.toString().replaceFirst('Exception: ', '');
-        });
-      }
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString().replaceFirst('Exception: ', '');
+      });
     } finally {
       if (mounted) {
-        setState(() {
-          _loading = false;
-        });
+        setState(() => _loading = false);
+        _scrollToBottom();
       }
     }
   }
 
-  // ───────────────────────── UI ─────────────────────────
+  Future<void> _retryLastMessage() async {
+    if (_loading || _messages.isEmpty || _messages.last.isUser == false) return;
 
-  static const double _maxWidth = 520;
-  static const _dark = Color(0xFF1E4D3A);
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      final history = _messages
+          .map((message) => <String, dynamic>{
+                'role': message.role,
+                'text': message.text,
+                'photo': message.photo,
+              })
+          .toList();
+      final answer = await _service.chat(history: history);
+      if (!mounted) return;
+      setState(() {
+        _messages.add(_ChatMessage(role: 'model', text: answer));
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString().replaceFirst('Exception: ', '');
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _loading = false);
+        _scrollToBottom();
+      }
+    }
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients) return;
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+      );
+    });
+  }
+
+  void _showMessage(String text) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(text), behavior: SnackBarBehavior.floating),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: _page,
       appBar: AppBar(
+        backgroundColor: _page,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.chevron_left, size: 28),
           onPressed: () => Navigator.of(context).maybePop(),
         ),
         titleSpacing: 0,
-        title: const Text(
-          'FlorAI',
-          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.history, size: 22),
-            onPressed: () {
-              showSoon(context, 'Riwayat diagnosa segera hadir');
-            },
-          ),
-        ],
-      ),
-      bottomNavigationBar: const AppBottomNav(currentIndex: 0),
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return SingleChildScrollView(
-              keyboardDismissBehavior:
-                  ScrollViewKeyboardDismissBehavior.onDrag,
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxWidth: _maxWidth,
-                    minHeight: constraints.maxHeight,
-                  ),
-                  // Saat belum ada hasil, tinggi layar dibagi rata antar
-                  // bagian; saat hasil muncul halaman tinggal di-scroll.
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _buildGreeting(),
-                        const SizedBox(height: 16),
-                        _buildFormCard(),
-                        const SizedBox(height: 16),
-                        _buildAnalyzeButton(),
-                        if (_error != null) ...[
-                          const SizedBox(height: 16),
-                          _buildError(),
-                        ],
-                        if (_result != null && !_loading) ...[
-                          const SizedBox(height: 16),
-                          _ResultCard(result: _result!),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
-      ),
-    );
-  }
-
-  Widget _buildGreeting() {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [_dark, AppColors.green],
-        ),
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.green.withAlpha(100),
-            blurRadius: 26,
-            spreadRadius: -2,
-            offset: const Offset(0, 12),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(22),
-        child: Stack(
+        title: Row(
           children: [
-            Positioned(
-              right: -14,
-              top: -16,
-              child: Transform.rotate(
-                angle: 0.5,
-                child: Icon(
-                  Icons.eco_rounded,
-                  size: 130,
-                  color: Colors.white.withAlpha(24),
-                ),
+            Container(
+              width: 36,
+              height: 36,
+              decoration: const BoxDecoration(
+                color: _paleGreen,
+                shape: BoxShape.circle,
               ),
+              child: const Icon(Icons.eco_rounded, color: _green, size: 23),
             ),
-            Positioned(
-              right: 70,
-              bottom: -22,
-              child: Transform.rotate(
-                angle: -0.6,
-                child: Icon(
-                  Icons.eco_rounded,
-                  size: 70,
-                  color: Colors.white.withAlpha(18),
+            const SizedBox(width: 9),
+            const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'FlorAI',
+                  style: TextStyle(
+                    color: _darkGreen,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Row(
-                children: [
-                  Container(
-                    width: 56,
-                    height: 56,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withAlpha(36),
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: Colors.white.withAlpha(120),
-                        width: 1.5,
-                      ),
-                    ),
-                    child: const Icon(
-                      Icons.auto_awesome,
-                      color: Colors.white,
-                      size: 26,
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Halo, Agrivers! 🌱👋',
-                          style: TextStyle(
-                            fontSize: 19,
-                            fontWeight: FontWeight.w800,
-                            color: Colors.white,
-                          ),
-                        ),
-                        SizedBox(height: 4),
-                        Text(
-                          'Ada yang bisa Flora bantu hari ini?',
-                          style: TextStyle(
-                            fontSize: 13,
-                            height: 1.35,
-                            color: Color(0xFFD7E8DD),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+                Text(
+                  'Asisten pintar tanaman',
+                  style: TextStyle(fontSize: 10, color: Colors.black54),
+                ),
+              ],
             ),
           ],
         ),
+        actions: [
+          IconButton(
+            tooltip: 'Percakapan baru',
+            icon: const Icon(Icons.history_rounded, color: _darkGreen),
+            onPressed: _loading
+                ? null
+                : () {
+                    setState(() {
+                      _messages.clear();
+                      _pendingPhoto = null;
+                      _error = null;
+                    });
+                  },
+          ),
+          const SizedBox(width: 4),
+        ],
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: ListView(
+              controller: _scrollController,
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              children: [
+                if (_messages.isEmpty) ...[
+                  _welcomeCard(),
+                  const SizedBox(height: 18),
+                  _assistantBubble(
+                    'Hai, Agrivers! 🌱 Aku FlorAI, teman konsultasi tanamanmu. '
+                    'Ceritakan kondisi tanamanmu atau kirim foto daun, batang, '
+                    'maupun buah yang ingin kamu periksa.',
+                  ),
+                ],
+                for (final message in _messages)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 14),
+                    child: message.isUser
+                        ? _userBubble(message)
+                        : _assistantBubble(message.text),
+                  ),
+                if (_loading)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 14),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            SizedBox(
+                              width: 15,
+                              height: 15,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: _green,
+                              ),
+                            ),
+                            SizedBox(width: 10),
+                            Text(
+                              'FlorAI sedang berpikir...',
+                              style: TextStyle(fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                if (_error != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFEEEE),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(Icons.error_outline,
+                              color: Colors.red, size: 19),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _error!,
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: _loading ? null : _retryLastMessage,
+                            child: const Text('Coba lagi'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          if (_messages.isEmpty && !_loading) _suggestionChips(),
+          _composer(),
+        ],
       ),
     );
   }
 
-  Widget _buildFormCard() {
-    return AppCard(
-      radius: 20,
-      padding: const EdgeInsets.all(16),
-      child: Column(
+  Widget _welcomeCard() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _paleGreen,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Foto tanaman',
-            style: TextStyle(
-              fontSize: 12.5,
-              fontWeight: FontWeight.w600,
-              color: AppColors.muted,
+          Container(
+            width: 38,
+            height: 38,
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
             ),
+            child: const Icon(Icons.spa_rounded, color: _green, size: 23),
           ),
-          const SizedBox(height: 8),
-          _photoSection(),
-          const SizedBox(height: 16),
-          const Text(
-            'Ceritakan keluhan atau gejala tanamanmu pada Flora',
-            style: TextStyle(
-              fontSize: 12.5,
-              fontWeight: FontWeight.w600,
-              color: AppColors.muted,
-            ),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _controller,
-            maxLines: 4,
-            style: const TextStyle(fontSize: 13, height: 1.4),
-            decoration: InputDecoration(
-              hintText:
-                  'misalnya daun menguning sejak 3 hari lalu atau foto bagian tanaman yang bermasalah.',
-              hintStyle: const TextStyle(
-                fontSize: 12,
-                color: AppColors.muted,
-              ),
-              isDense: true,
-              contentPadding: const EdgeInsets.all(12),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(
-                  color: AppColors.green,
-                  width: 1.2,
-                ),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(
-                  color: AppColors.green,
-                  width: 1.8,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              for (final c in _contohGejala)
-                ActionChip(
-                  label: Text(c, style: const TextStyle(fontSize: 11)),
-                  backgroundColor: AppColors.greenSoft,
-                  side: BorderSide.none,
-                  visualDensity: VisualDensity.compact,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
+          const SizedBox(width: 11),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Halo, Saya FlorAI 🌿',
+                  style: TextStyle(
+                    color: _darkGreen,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13,
                   ),
-                  onPressed: () {
-                    _controller.text = c;
-                    _controller.selection = TextSelection.collapsed(
-                      offset: _controller.text.length,
-                    );
-                  },
                 ),
-            ],
+                SizedBox(height: 4),
+                Text(
+                  'Bantu periksa gejala tanaman, memahami kemungkinan penyebab, '
+                  'dan menemukan langkah perawatan awal yang aman.',
+                  style: TextStyle(
+                    color: Color(0xFF395849),
+                    fontSize: 11.5,
+                    height: 1.45,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildAnalyzeButton() {
-    return SizedBox(
-      height: 52,
-      child: FilledButton.icon(
-        onPressed: _loading ? null : _analyze,
-        style: FilledButton.styleFrom(
-          backgroundColor: AppColors.green,
-          elevation: 4,
-          shadowColor: AppColors.green.withAlpha(120),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-        ),
-        icon: _loading
-            ? const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Colors.white,
-                ),
-              )
-            : const Icon(Icons.auto_awesome, size: 18),
-        label: Text(
-          _loading ? 'Menganalisis...' : 'Analisis dengan AI',
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildError() {
-    return AppCard(
-      radius: 16,
-      child: Row(
-        children: [
-          const Icon(Icons.error_outline, color: Colors.red, size: 20),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(_error!, style: const TextStyle(fontSize: 12)),
-          ),
-          TextButton(
-            onPressed: _loading ? null : _analyze,
-            child: const Text('Coba lagi'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _photoSection() {
-    if (_foto == null) {
-      return InkWell(
-        onTap: _showPhotoSheet,
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
-          height: 110,
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: AppColors.greenSoft,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.green.withAlpha(128)),
-          ),
-          child: const Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.add_a_photo_outlined,
-                color: AppColors.green,
-                size: 28,
-              ),
-              SizedBox(height: 8),
-              Text(
-                'Tambah foto tanaman',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.green,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return Stack(
+  Widget _assistantBubble(String text) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(14),
-          child: Image.file(
-            _foto!,
-            height: 170,
-            width: double.infinity,
-            fit: BoxFit.cover,
+        Container(
+          width: 28,
+          height: 28,
+          decoration: const BoxDecoration(
+            color: _paleGreen,
+            shape: BoxShape.circle,
           ),
+          child: const Icon(Icons.eco_rounded, color: _green, size: 17),
         ),
-        Positioned(
-          top: 8,
-          right: 8,
-          child: Row(
-            children: [
-              _MiniBtn(icon: Icons.edit, onTap: _showPhotoSheet),
-              const SizedBox(width: 6),
-              _MiniBtn(
-                icon: Icons.close,
-                onTap: () {
-                  setState(() {
-                    _foto = null;
-                    _result = null;
-                    _error = null;
-                  });
-                },
+        const SizedBox(width: 8),
+        Flexible(
+          child: Container(
+            padding: const EdgeInsets.all(13),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(15).copyWith(
+                topLeft: const Radius.circular(4),
               ),
-            ],
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withAlpha(10),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: SelectableText(
+              text,
+              style: const TextStyle(
+                color: Color(0xFF263B30),
+                fontSize: 12.5,
+                height: 1.5,
+              ),
+            ),
           ),
         ),
       ],
     );
   }
-}
 
-class _MiniBtn extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onTap;
-
-  const _MiniBtn({
-    required this.icon,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.black54,
-      shape: const CircleBorder(),
-      child: InkWell(
-        customBorder: const CircleBorder(),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(6),
-          child: Icon(icon, size: 16, color: Colors.white),
+  Widget _userBubble(_ChatMessage message) {
+    return Align(
+      alignment: Alignment.centerRight,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.78,
+        ),
+        child: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: const BoxDecoration(
+            color: _darkGreen,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(15),
+              topRight: Radius.circular(5),
+              bottomLeft: Radius.circular(15),
+              bottomRight: Radius.circular(15),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (message.photo != null) ...[
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Image.file(
+                    message.photo!,
+                    width: 210,
+                    height: 140,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                if (message.text.isNotEmpty) const SizedBox(height: 8),
+              ],
+              if (message.text.isNotEmpty)
+                Text(
+                  message.text,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12.5,
+                    height: 1.4,
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
   }
-}
 
-class _ResultCard extends StatelessWidget {
-  final DiagnosaResult result;
-
-  const _ResultCard({
-    required this.result,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final steps = result.langkah;
-
-    return AppCard(
-      radius: 20,
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Dugaan penyakit',
-            style: TextStyle(fontSize: 11.5, color: AppColors.muted),
+  Widget _suggestionChips() {
+    return SizedBox(
+      height: 42,
+      child: ListView.separated(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 3),
+        scrollDirection: Axis.horizontal,
+        itemCount: _suggestions.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 7),
+        itemBuilder: (context, index) => ActionChip(
+          label: Text(
+            _suggestions[index],
+            style: const TextStyle(fontSize: 10.5, color: _darkGreen),
           ),
-          const SizedBox(height: 4),
-          Text(
-            result.penyakit,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            result.penjelasan,
-            style: const TextStyle(
-              fontSize: 12,
-              color: AppColors.muted,
-              height: 1.4,
-            ),
-          ),
-          if (steps.isNotEmpty) ...[
-            const SizedBox(height: 14),
-            const Text(
-              'Rekomendasi penanganan',
-              style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 8),
-            for (var i = 0; i < steps.length; i++)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 22,
-                      height: 22,
-                      alignment: Alignment.center,
-                      decoration: const BoxDecoration(
-                        color: AppColors.greenSoft,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Text(
-                        '${i + 1}',
-                        style: const TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.green,
+          backgroundColor: Colors.white,
+          side: const BorderSide(color: Color(0xFFD7E8DA)),
+          visualDensity: VisualDensity.compact,
+          onPressed: () => _sendMessage(suggestedText: _suggestions[index]),
+        ),
+      ),
+    );
+  }
+
+  Widget _composer() {
+    return SafeArea(
+      top: false,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
+        decoration: const BoxDecoration(
+          color: _page,
+          border: Border(top: BorderSide(color: Color(0xFFE6ECE7))),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (_pendingPhoto != null)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 8, left: 4),
+                  child: Stack(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: Image.file(
+                          _pendingPhoto!,
+                          width: 76,
+                          height: 64,
+                          fit: BoxFit.cover,
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        steps[i],
-                        style: const TextStyle(fontSize: 12.5, height: 1.4),
+                      Positioned(
+                        top: 2,
+                        right: 2,
+                        child: InkWell(
+                          onTap: () => setState(() => _pendingPhoto = null),
+                          child: const CircleAvatar(
+                            radius: 10,
+                            backgroundColor: Colors.black54,
+                            child: Icon(Icons.close,
+                                size: 12, color: Colors.white),
+                          ),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-          ],
-          const SizedBox(height: 12),
-          const Center(
-            child: Text(
-              'Hasil AI bersifat panduan awal. Konsultasikan dengan penyuluh pertanian untuk kasus berat.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 10, color: AppColors.muted),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                IconButton(
+                  tooltip: 'Kirim foto',
+                  onPressed: _loading ? null : _showPhotoOptions,
+                  icon: const Icon(Icons.add_circle_outline,
+                      color: _green, size: 25),
+                ),
+                Expanded(
+                  child: TextField(
+                    controller: _controller,
+                    minLines: 1,
+                    maxLines: 4,
+                    textCapitalization: TextCapitalization.sentences,
+                    onSubmitted: (_) => _sendMessage(),
+                    decoration: InputDecoration(
+                      hintText: 'Tanya FlorAI...',
+                      hintStyle: const TextStyle(
+                        color: Colors.black45,
+                        fontSize: 12,
+                      ),
+                      filled: true,
+                      fillColor: Colors.white,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 11,
+                      ),
+                      isDense: true,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(22),
+                        borderSide: const BorderSide(color: Color(0xFFE0E8E1)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(22),
+                        borderSide: const BorderSide(color: Color(0xFFE0E8E1)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(22),
+                        borderSide: const BorderSide(color: _green),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Material(
+                  color: _green,
+                  shape: const CircleBorder(),
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: _loading ? null : _sendMessage,
+                    child: Padding(
+                      padding: const EdgeInsets.all(11),
+                      child: _loading
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.arrow_upward_rounded,
+                              color: Colors.white, size: 19),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
