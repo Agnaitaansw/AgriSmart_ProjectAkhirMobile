@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 
 /// Layanan chat FlorAI berbasis Gemini multimodal.
-/// API key diberikan melalui --dart-define, bukan ditulis langsung di kode.
+/// API key diberikan melalui --dart-define
 class DiagnosaService {
   static const String _apiKey =
       String.fromEnvironment('DIAGNOSA_API_KEY');

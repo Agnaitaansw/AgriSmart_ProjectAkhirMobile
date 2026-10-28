@@ -10,7 +10,7 @@ import 'package:web3dart/web3dart.dart';
 import 'blockchain_config.dart';
 import 'db_helper.dart';
 
-/// Ringkasan data user yang dibaca langsung dari smart contract.
+/// data user yang dibaca langsung dari smart contract.
 class StatusOnChain {
   final BigInt saldo;
   final BigInt jumlah;
@@ -19,12 +19,10 @@ class StatusOnChain {
 }
 
 /// Riwayat poin di blockchain Sepolia lewat smart contract PoinLedger.
-///
 /// Alur (offline-first):
 ///  1. catat() -> simpan ke SQLite dulu (synced = 0), supaya aplikasi tetap cepat
 ///  2. sinkronkan() -> kirim transaksi ke kontrak, simpan tx_hash, tunggu
 ///     konfirmasi jaringan, lalu salin ke Supabase dan tandai synced = 1
-///
 /// Simpan di: lib/services/blockchain_service.dart
 class BlockchainService {
   BlockchainService._();
@@ -36,7 +34,6 @@ class BlockchainService {
   static bool _sedangSinkron = false;
   static bool _perluUlang = false;
 
-  /// Alasan kegagalan terakhir (ditampilkan di layar riwayat). null = tidak ada masalah.
   static String? errorTerakhir;
 
   static Web3Client? _klien;
@@ -51,10 +48,6 @@ class BlockchainService {
   static EthPrivateKey get _dompet =>
       EthPrivateKey.fromHex(BlockchainConfig.privateKey);
 
-  // ───────────────────────── CATAT ─────────────────────────
-
-  /// Catat satu transaksi poin milik [userId].
-  /// [poin] selalu positif; tanda +/- ditentukan oleh [tipe].
   static Future<void> catat({
     required int userId,
     required int poin,
@@ -76,7 +69,7 @@ class BlockchainService {
     final previousHash =
         terakhir.isEmpty ? _hashAwal : terakhir.first['current_hash'] as String;
 
-    // Hash lokal (cadangan saat offline); bukti utamanya ada di tx_hash on-chain
+    // Hash lokal (cadangan saat offline), bukti utamanya ada di tx_hash on-chain
     final currentHash = sha256
         .convert(utf8.encode('$previousHash|$deskripsi|$jumlah|$waktu'))
         .toString();
@@ -107,10 +100,8 @@ class BlockchainService {
     return List<Map<String, dynamic>>.from(rows);
   }
 
-  // ───────────────────────── KIRIM KE BLOCKCHAIN ─────────────────────────
 
   /// Kirim catatan yang belum terkonfirmasi ke blockchain (berurutan).
-  /// Aman dipanggil berkali-kali; kalau offline, baris tetap menunggu.
   static Future<void> sinkronkan() async {
     if (!BlockchainConfig.siap) {
       errorTerakhir =
@@ -199,10 +190,6 @@ class BlockchainService {
     return null;
   }
 
-  // ───────────────────────── BACA DARI KONTRAK ─────────────────────────
-
-  /// Saldo, jumlah catatan, dan hasil verifikasi rantai langsung dari smart
-  /// contract. Mengembalikan null kalau belum dikonfigurasi atau offline.
   static Future<StatusOnChain?> statusOnChain(int userId) async {
     if (!BlockchainConfig.siap) return null;
     try {

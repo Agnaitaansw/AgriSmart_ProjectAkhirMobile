@@ -40,7 +40,6 @@ class SyncService {
       }
     } catch (e) {
       print('Gagal melakukan sinkronisasi: $e');
-      // Data tetap aman di SQLite (synced = 0) dan akan dicoba lagi nanti
     }
   }
 }

@@ -32,29 +32,22 @@ class DbHelper {
         ''');
         await _buatTabelGame(db);
       },
-      // Versi 1 -> 4: buat semua tabel baru.
-      // Versi 2/3 -> 4: user_plants versi lama dibuang dan dibuat ulang
-      // (sekarang untuk tanaman pilihan user); versi 2 juga mendapat kolom
-      // last_watered_at di user_rewards (mini game).
+    
       onUpgrade: (db, oldVersion, _) async {
         if (oldVersion == 2) {
           await db.execute(
               'ALTER TABLE user_rewards ADD COLUMN last_watered_at TEXT');
         }
-        // hanya dari versi 2/3 (jangan dari 4, supaya tanaman user tidak hilang)
         if (oldVersion >= 2 && oldVersion < 4) {
           await db.execute('DROP TABLE IF EXISTS user_plants');
         }
         await _buatTabelGame(db);
-        // Versi 5: kolom tx_hash (hash transaksi di blockchain)
         await _tambahKolomJikaBelum(db, 'blockchain_logs', 'tx_hash', 'TEXT');
       },
     );
   }
 
-  /// Tabel tanaman user, mini game (poin + teko), dan riwayat blockchain.
   Future<void> _buatTabelGame(Database db) async {
-    // Tanaman yang dipilih user (Tanaman Saya)
     await db.execute('''
       CREATE TABLE IF NOT EXISTS user_plants (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -68,7 +61,6 @@ class DbHelper {
         UNIQUE (user_id, plant_name)
       )
     ''');
-    // Mini game (berdiri sendiri): koin, total siram, terakhir menyiram
     await db.execute('''
       CREATE TABLE IF NOT EXISTS user_rewards (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -111,9 +103,6 @@ class DbHelper {
     if (!ada) await db.execute('ALTER TABLE $tabel ADD COLUMN $kolom $tipe');
   }
 
-  /// Simpan akun dengan id yang SAMA dengan id di Supabase.
-  /// Kalau ada baris lokal lama dengan username/email/id yang sama
-  /// (misalnya salinan dobel dari versi sebelumnya), baris itu diganti.
   Future<void> upsertUserFromCloud({
     required int id,
     required String name,
@@ -146,7 +135,6 @@ class DbHelper {
         conflictAlgorithm: ConflictAlgorithm.abort);
   }
 
-  /// Cari berdasarkan email ATAU username (case-insensitive).
   Future<UserModel?> findByIdentifier(String identifier) async {
     final db = await database;
     final rows = await db.query(

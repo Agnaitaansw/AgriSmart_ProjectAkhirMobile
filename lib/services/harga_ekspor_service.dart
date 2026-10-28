@@ -3,8 +3,6 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:html/parser.dart' as html_parser;
 
-/// Satu harga komoditas per kilogram, berdasarkan periode terbaru
-/// yang tersedia pada tabel sumber.
 class CommodityPrice {
   const CommodityPrice({
     required this.name,
@@ -96,7 +94,6 @@ class HargaEksporService {
           .trim()
           .toLowerCase();
 
-      // Harga dikembalikan dalam USD/kg. Data $/mt dibagi 1000.
       final isUsdPerKg = unit == r'$/kg' || unit == r'us$/kg';
       final isUsdPerMetricTon =
           unit == r'$/mt' || unit == r'us$/mt' ||
@@ -109,9 +106,6 @@ class HargaEksporService {
       final values = <double>[];
       final periods = <String>[];
 
-      // Kolom setelah nama dan satuan dianggap sebagai Jan–Des.
-      // Jika struktur tabel berubah, pengecekan hasil kosong akan
-      // memunculkan pesan error alih-alih menampilkan angka dummy.
       for (var i = 2; i < cells.length && i < 14; i++) {
         final raw = cells[i].text
             .replaceAll('\u00A0', '')
@@ -147,8 +141,6 @@ class HargaEksporService {
       );
     }
 
-    // Hilangkan duplikat nama komoditas jika tabel memuat lebih dari satu
-    // baris dengan nama sama; pertahankan baris pertama yang ditemukan.
     final unique = <String, CommodityPrice>{};
     for (final item in results) {
       unique.putIfAbsent(item.name.toLowerCase(), () => item);

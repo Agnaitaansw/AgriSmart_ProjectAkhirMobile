@@ -3,7 +3,6 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../utils/constants.dart';
 
-/// Header melengkung (desain 2) + logo daun (desain 1).
 class AuthHeader extends StatelessWidget {
   final double height;
   const AuthHeader({super.key, this.height = 220});
@@ -62,7 +61,6 @@ class _WaveClipper extends CustomClipper<Path> {
   bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
 }
 
-/// Logo kotak hijau + judul "AgriSmart" (desain 1).
 class AuthTitle extends StatelessWidget {
   final String title;
   final String subtitle;

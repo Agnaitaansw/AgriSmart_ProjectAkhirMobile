@@ -6,13 +6,12 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'db_helper.dart';
 import 'blockchain_service.dart';
 
-/// Gambaran data mini game milik satu user.
 class StatusPenyiraman {
   final int koin;
   final int totalPenyiraman;
   final DateTime? terakhirDisiram;
-  final Set<int> tekoDimiliki; // tanpa teko bawaan (id 0)
-  final int tekoAktif; // 0 = teko bawaan
+  final Set<int> tekoDimiliki; 
+  final int tekoAktif; 
 
   const StatusPenyiraman({
     required this.koin,
@@ -30,12 +29,7 @@ class StatusPenyiraman {
   }
 }
 
-/// Menyimpan mini game penyiraman, poin (user_rewards), dan teko.
-/// Semua ditulis ke SQLite dulu (synced = 0), lalu dikirim ke Supabase.
-/// Simpan di: lib/services/penyiraman_repository.dart
 class PenyiramanRepository {
-  /// Koin yang didapat user baru saat baris user_rewards pertama dibuat.
-  /// Ubah ke 0 kalau tidak mau ada koin awal.
   static const int koinAwal = 10;
   static const int hadiahMenyiram = 2;
 
@@ -44,7 +38,6 @@ class PenyiramanRepository {
   Future<Database> get _db => DbHelper.instance.database;
   SupabaseClient get _supabase => Supabase.instance.client;
 
-  // ───────────────────────── BACA ─────────────────────────
 
   Future<StatusPenyiraman> muat(int userId) async {
     final db = await _db;
@@ -60,7 +53,6 @@ class PenyiramanRepository {
     final dimiliki = <int>{for (final c in cans) c['can_id'] as int};
     final aktif = cans.where((c) => c['is_active'] == 1).toList();
 
-    // Kirim data yang tertunda (kalau ada koneksi)
     unawaited(sinkronkan(userId));
     unawaited(BlockchainService.sinkronkan());
 
@@ -74,11 +66,6 @@ class PenyiramanRepository {
     );
   }
 
-  // ───────────────────────── TULIS ─────────────────────────
-
-  /// Penyiraman berhasil: koin +[hadiahMenyiram], total penyiraman +1,
-  /// last_watered_at diperbarui, dan riwayat blockchain dicatat.
-  /// Mengembalikan jumlah koin terbaru.
   Future<int> catatPenyiraman(int userId) async {
     final db = await _db;
     final sekarang = DateTime.now().toIso8601String();
@@ -111,7 +98,6 @@ class PenyiramanRepository {
     return koinBaru;
   }
 
-  /// Beli teko. Mengembalikan false kalau koin kurang atau teko sudah dimiliki.
   Future<bool> beliTeko({
     required int userId,
     required int canId,
@@ -153,7 +139,6 @@ class PenyiramanRepository {
     return true;
   }
 
-  /// Pakai teko [canId] (0 = teko bawaan). Hanya satu teko yang aktif.
   Future<void> gunakanTeko(int userId, int canId) async {
     final db = await _db;
     await db.transaction((txn) async {
@@ -167,10 +152,6 @@ class PenyiramanRepository {
     unawaited(sinkronkan(userId));
   }
 
-  // ───────────────────────── SINKRONISASI ─────────────────────────
-
-  /// Kirim baris yang belum terkirim (synced = 0) ke Supabase.
-  /// Kalau offline atau gagal, baris tetap menunggu dan dicoba lagi nanti.
   Future<void> sinkronkan(int userId) async {
     if (_sedangSinkron) return;
     _sedangSinkron = true;
@@ -210,9 +191,6 @@ class PenyiramanRepository {
     }
   }
 
-  // ───────────────────────── PEMBANTU ─────────────────────────
-
-  /// Pastikan baris user_rewards milik user ada (dibuat dengan [koinAwal]).
   Future<void> _pastikanReward(DatabaseExecutor ex, int userId) async {
     final ada = await ex.query('user_rewards',
         columns: ['id'], where: 'user_id = ?', whereArgs: [userId], limit: 1);
@@ -226,8 +204,6 @@ class PenyiramanRepository {
     }
   }
 
-  /// Kalau data lokal user kosong (misalnya login di HP baru), ambil dari
-  /// Supabase. Kalau offline, dilewati begitu saja.
   Future<void> _tarikDariServerJikaKosong(Database db, int userId) async {
     try {
       Future<bool> kosong(String tabel) async {

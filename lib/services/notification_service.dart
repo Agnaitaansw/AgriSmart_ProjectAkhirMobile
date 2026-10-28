@@ -102,12 +102,6 @@ class NotificationService {
     }
   }
 
-  /// Menjadwalkan pengingat tiap jam (tepat di awal jam) antara [jamMulai]
-  /// dan [jamSelesai], untuk [hariKeDepan] hari ke depan.
-  ///
-  /// Kalau aplikasi tidak dibuka selama [hariKeDepan] hari, pengingat berhenti
-  /// sendiri (tidak mengirim notifikasi tanpa akhir).
-  /// Ingin 24 jam penuh? Isi jamMulai: 0, jamSelesai: 23.
   Future<void> jadwalkanPerJam({
     required bool sudahDisiramHariIni,
     int jamMulai = 9,

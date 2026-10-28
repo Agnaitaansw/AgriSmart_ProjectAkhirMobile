@@ -3,7 +3,6 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../utils/constants.dart';
 import '../utils/crypto_util.dart';
 
-/// Session disimpan terenkripsi (Android Keystore / iOS Keychain).
 class SessionManager {
   SessionManager._();
   static final SessionManager instance = SessionManager._();
@@ -48,7 +47,6 @@ class SessionManager {
     return e == null ? null : DateTime.tryParse(e);
   }
 
-  /// Logout: hapus session, pengaturan biometrik tetap tersimpan.
   Future<void> clear() async {
     await _storage.delete(key: _kToken);
     await _storage.delete(key: _kUserId);
@@ -64,7 +62,6 @@ class SessionManager {
   Future<int?> biometricUserId() async =>
       int.tryParse(await _storage.read(key: _kBioUser) ?? '');
 
-  // ---- "Tetap masuk": ingat username terakhir ----
   Future<void> saveLastIdentifier(String? v) async {
     if (v == null) {
       await _storage.delete(key: _kLastIdentifier);

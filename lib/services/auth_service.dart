@@ -20,13 +20,7 @@ class AuthResult {
   const AuthResult(this.ok, this.message, [this.user]);
 }
 
-/// Autentikasi offline-first dengan Supabase sebagai sumber kebenaran.
-///
-/// - Id user SELALU dibuat oleh Supabase, lalu salinan lokal (SQLite) memakai
-///   id yang sama. Dengan begitu user_id di tabel poin, tanaman, teko, dan
-///   riwayat sama di semua perangkat.
-/// - Register butuh internet (supaya id dan pengecekan duplikat konsisten).
-/// - Login: cek SQLite dulu; kalau akun belum ada di HP ini, ambil dari Supabase.
+
 class AuthService {
   AuthService._();
   static final AuthService instance = AuthService._();
@@ -39,7 +33,6 @@ class AuthService {
 
   static const _salah = AuthResult(false, 'Username/email atau password salah');
 
-  // ---------------------------------------------------------------- REGISTER
   Future<AuthResult> register({
     required String name,
     required String username,
@@ -71,7 +64,7 @@ class AuthService {
         return const AuthResult(false, 'Email sudah terdaftar');
       }
 
-      // 3. Buat di Supabase; id dibuat oleh Supabase (jangan dikirim dari sini)
+      // 3. Buat di Supabase; id dibuat oleh Supabase
       final row = await _supabase
           .from('users')
           .insert({
@@ -119,12 +112,8 @@ class AuthService {
     return const AuthResult(true, 'Registrasi berhasil');
   }
 
-  /// Tidak dipakai lagi: akun sekarang langsung dibuat di Supabase saat
-  /// register, jadi tidak ada akun "menunggu sinkron". Dibiarkan kosong supaya
-  /// pemanggil lama tetap bisa dikompilasi.
   Future<void> syncPending() async {}
 
-  // ------------------------------------------------------------------- LOGIN
   Future<AuthResult> login({
     required String identifier,
     required String password,
@@ -204,7 +193,6 @@ class AuthService {
     }
   }
 
-  // ----------------------------------------------------------------- PEMBANTU
   Future<bool> _adaDiServer(String kolom, String nilai) async {
     final rows = await _supabase
         .from('users')
@@ -215,17 +203,15 @@ class AuthService {
     return rows.isNotEmpty;
   }
 
-  /// ilike memperlakukan % dan _ sebagai wildcard; di sini harus dianggap huruf biasa.
   String _escapeLike(String s) => s
       .replaceAll(r'\', r'\\')
       .replaceAll('%', r'\%')
       .replaceAll('_', r'\_');
 
-  /// Hanya masalah koneksi yang dianggap "tidak ada internet".
+  
   bool _jaringan(Object e) =>
       e is IOException || e is TimeoutException || e is http.ClientException;
 
-  // --------------------------------------------------------------- BIOMETRIK
   Future<bool> isBiometricAvailable() async {
     try {
       return await _bio.isDeviceSupported() &&
@@ -285,7 +271,7 @@ class AuthService {
     return AuthResult(true, 'Login berhasil', user);
   }
 
-  // ----------------------------------------------------------------- SESSION
+  // SESSION
   Future<bool> hasValidSession() => _session.isValid();
 
   Future<UserModel?> currentUser() async {
