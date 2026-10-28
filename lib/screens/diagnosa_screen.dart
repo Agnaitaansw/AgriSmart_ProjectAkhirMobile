@@ -273,8 +273,8 @@ class _DiagnosaScreenState extends State<DiagnosaScreen> {
                   const SizedBox(height: 18),
                   _assistantBubble(
                     'Hai, Agrivers! 🌱 Aku FlorAI, teman konsultasi tanamanmu. '
-                    'Ceritakan kondisi tanamanmu atau kirim foto daun, batang, '
-                    'maupun buah yang ingin kamu periksa.',
+                    'FlorAI siap membantu kamu memahami kondisi tanamanmu ',
+    
                   ),
                 ],
                 for (final message in _messages)
@@ -383,21 +383,12 @@ class _DiagnosaScreenState extends State<DiagnosaScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Halo, Saya FlorAI 🌿',
+                  'Halo, Saya FlorAI 🌿'
+                  ' Asisten konsultasi tanamanmu.',
                   style: TextStyle(
                     color: _darkGreen,
                     fontWeight: FontWeight.w800,
                     fontSize: 13,
-                  ),
-                ),
-                SizedBox(height: 4),
-                Text(
-                  'Bantu periksa gejala tanaman, memahami kemungkinan penyebab, '
-                  'dan menemukan langkah perawatan awal yang aman.',
-                  style: TextStyle(
-                    color: Color(0xFF395849),
-                    fontSize: 11.5,
-                    height: 1.45,
                   ),
                 ),
               ],
