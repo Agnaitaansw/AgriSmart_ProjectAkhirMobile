@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../services/harga_ekspor_service.dart';
 
-// TAMBAH: pilihan filter perubahan harga
 enum PriceFilter { semua, naik, turun }
 
 class HargaEksporScreen extends StatefulWidget {
@@ -31,7 +30,6 @@ class _HargaEksporScreenState extends State<HargaEksporScreen> {
   late Timer _timer;
   DateTime _utcNow = DateTime.now().toUtc();
 
-  // UBAH: suggestions ikut dipengaruhi filter naik/turun
   List<CommodityPrice> get _matches {
     final query = _query.trim().toLowerCase();
     if (query.isEmpty) return <CommodityPrice>[];
@@ -42,7 +40,6 @@ class _HargaEksporScreenState extends State<HargaEksporScreen> {
         .toList();
   }
 
-  // TAMBAH: persentase perubahan harga periode terbaru vs sebelumnya
   double? _changePct(CommodityPrice item) {
     final values = item.historyUsdPerKg;
     if (values.length < 2) return null;
@@ -51,7 +48,6 @@ class _HargaEksporScreenState extends State<HargaEksporScreen> {
     return ((item.usdPerKg - previous) / previous) * 100;
   }
 
-  // TAMBAH: apakah komoditas lolos filter yang aktif
   bool _passesFilter(CommodityPrice item) {
     if (_filter == PriceFilter.semua) return true;
     final change = _changePct(item);
@@ -59,13 +55,11 @@ class _HargaEksporScreenState extends State<HargaEksporScreen> {
     return _filter == PriceFilter.naik ? change > 0 : change < 0;
   }
 
-  // TAMBAH: format persen, contoh +3,5%
   String _formatPct(double value) {
     final sign = value > 0 ? '+' : '';
     return '$sign${value.toStringAsFixed(1).replaceAll('.', ',')}%';
   }
 
-  // TAMBAH: ganti filter, reset pilihan & pencarian
   void _setFilter(PriceFilter filter) {
     setState(() {
       _filter = filter;
@@ -163,7 +157,6 @@ class _HargaEksporScreenState extends State<HargaEksporScreen> {
       return;
     }
 
-    // UBAH: hasil pencarian ikut dipengaruhi filter
     final matches = _allCommodities
         .where((item) => item.name.toLowerCase().contains(query))
         .where(_passesFilter)

@@ -35,7 +35,6 @@ class _TanamanDetailScreenState extends State<TanamanDetailScreen> {
   }
 
 
-  // Memeriksa apakah tanaman sudah tersimpan.
   Future<void> _checkSaved() async {
     try {
       final added = await PlantManager.instance.contains(
@@ -316,7 +315,6 @@ class _TanamanDetailScreenState extends State<TanamanDetailScreen> {
     );
   }
 
-  // Menambahkan tanaman ke Tanaman Saya.
   Future<void> _addPlant() async {
     if (_checking || _saving || _alreadyAdded) return;
 
@@ -335,7 +333,6 @@ class _TanamanDetailScreenState extends State<TanamanDetailScreen> {
 
       await PlantManager.instance.addPlant(plant);
 
-      // Periksa ulang apakah tanaman berhasil tersimpan.
       final added = await PlantManager.instance.contains(
         widget.crop.name,
       );

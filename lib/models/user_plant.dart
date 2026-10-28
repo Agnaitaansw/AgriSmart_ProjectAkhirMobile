@@ -18,7 +18,6 @@ class UserPlant {
   DateTime get nextWatering => plantedAt.add(Duration(days: wateringEveryDays));
   DateTime get estimatedHarvest => plantedAt.add(Duration(days: harvestDays));
 
-  /// Untuk disimpan ke SQLite (kolom user_plants).
   Map<String, Object?> toMap(int userId) => {
         'user_id': userId,
         'plant_name': name,

@@ -27,7 +27,7 @@ class _LoginPageState extends State<LoginPage> {
   void initState() {
     super.initState();
     _prefill();
-    _auth.syncPending(); // kirim akun offline ke server bila sudah online
+    _auth.syncPending(); 
   }
 
   Future<void> _prefill() async {
@@ -64,7 +64,6 @@ class _LoginPageState extends State<LoginPage> {
       return;
     }
 
-    // Tawarkan aktivasi biometrik setelah login password pertama.
     if (await _auth.isBiometricAvailable() && !await _auth.isBiometricEnabled()) {
       if (!mounted) return;
       final yes = await showDialog<bool>(

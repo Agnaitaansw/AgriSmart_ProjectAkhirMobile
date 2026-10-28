@@ -101,7 +101,6 @@ class _BerandaScreenState extends State<BerandaScreen> {
     _getCurrentLocation();
   }
 
-  /// Ambil URL foto profil dari sumber yang sama dengan ProfilScreen.
   Future<void> _loadProfilePhoto() async {
     try {
       final appUser = await _auth.currentUser();
@@ -214,7 +213,6 @@ class _BerandaScreenState extends State<BerandaScreen> {
     );
   }
 
-  // ───────────────────────── UI ─────────────────────────
 
   static const double _maxWidth = 520;
   static const double _hPad = 16;
@@ -238,8 +236,6 @@ class _BerandaScreenState extends State<BerandaScreen> {
                   final boxSize = (tileW * 0.82).clamp(54.0, 82.0);
                   final tileH = boxSize + 34;
 
-                  // Tinggi minimal agar tidak overflow; kalau layar lebih
-                  // pendek halaman bisa di-scroll.
                   final totalH = constraints.maxHeight < 620
                       ? 620.0
                       : constraints.maxHeight;
@@ -258,8 +254,7 @@ class _BerandaScreenState extends State<BerandaScreen> {
                               _hPad,
                               16,
                             ),
-                            // Sisa tinggi layar dibagi rata lewat Spacer,
-                            // jadi tidak numpuk di atas / kosong di bawah.
+                            
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [

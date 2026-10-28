@@ -8,7 +8,6 @@ import '../services/sesi_user.dart';
 import '../utils/constants.dart';
 import '../widgets/common.dart';
 
-/// Data alat penyiram. id 0 = teko bawaan (gratis, sudah dimiliki).
 class Penyiram {
   final int id;
   final String nama;
@@ -34,11 +33,10 @@ class SimulasiPenyiramanScreen extends StatefulWidget {
 }
 
 class _SimulasiPenyiramanScreenState extends State<SimulasiPenyiramanScreen> {
-  // Logic Sensor
+  
   StreamSubscription<AccelerometerEvent>? _accelSubscription;
   double _x = 0.0, _y = 0.0, _z = 0.0;
 
-  // Game Logic State
   int _secondsLeft = 24;
   int _score = 120;
   double _waterProgress = 0.55; // 55%
@@ -46,15 +44,12 @@ class _SimulasiPenyiramanScreenState extends State<SimulasiPenyiramanScreen> {
   bool _isWatering = false;
   Timer? _gameTimer;
 
-  // Data tersimpan (SQLite + Supabase) lewat repository
   final _repo = PenyiramanRepository();
   bool _memuat = true;
 
-  // Poin & Toko Penyiram
   int _poinUser = 0;
   bool _sudahDisiramHariIni = false;
 
-  // TAMBAH: status pengingat harian setiap 1jam
   bool _pengingatAktif = false;
   bool _pengingatMemproses = false;
 
@@ -71,9 +66,9 @@ class _SimulasiPenyiramanScreenState extends State<SimulasiPenyiramanScreen> {
     Penyiram(id: 4, nama: 'Teko Merah', harga: 580, warna: const Color(0xFFD9534F)),
   ];
 
-  int _aktifId = 0; // teko yang sedang dipakai di arena
-  int? _tokoTerpilihId; // teko di toko yang dipilih untuk dibeli
-  int _pilihMilikId = 0; // teko milik user yang dipilih (sebelum "Gunakan")
+  int _aktifId = 0; 
+  int? _tokoTerpilihId; 
+  int _pilihMilikId = 0; 
 
   Penyiram _cari(int id) => _daftarPenyiram.firstWhere((p) => p.id == id);
   List<Penyiram> get _daftarToko =>
@@ -90,7 +85,6 @@ class _SimulasiPenyiramanScreenState extends State<SimulasiPenyiramanScreen> {
     _startTimer();
   }
 
-  // TAMBAH: cek apakah pengingat harian sudah terjadwal di sistem
   Future<void> _muatStatusPengingat() async {
     try {
       final aktif = await NotificationService.instance.isWateringScheduled();
@@ -115,7 +109,7 @@ class _SimulasiPenyiramanScreenState extends State<SimulasiPenyiramanScreen> {
           }
           return;
         }
-        // Notifikasi tiap 1 jam selama hari itu belum menyiram
+      
         await NotificationService.instance
             .jadwalkanPerJam(sudahDisiramHariIni: _sudahDisiramHariIni);
         if (mounted) {
@@ -137,8 +131,7 @@ class _SimulasiPenyiramanScreenState extends State<SimulasiPenyiramanScreen> {
     }
   }
 
-  // Kalau pengingat menyala, perbarui jadwalnya setiap layar ini dibuka:
-  // hari ini sudah disiram -> lewati, dan jendela 3 hari ke depan diperpanjang.
+
   Future<void> _segarkanJadwal() async {
     try {
       final aktif = await NotificationService.instance.isWateringScheduled();
@@ -151,9 +144,9 @@ class _SimulasiPenyiramanScreenState extends State<SimulasiPenyiramanScreen> {
     }
   }
 
-  // Ambil poin, teko, dan status "sudah disiram hari ini" dari database
+  
   Future<void> _muatData() async {
-    // Tunggu frame pertama selesai supaya snackbar aman dipakai kalau gagal
+  
     await Future<void>.delayed(Duration.zero);
     try {
       final s = await _repo.muat(await idUserLogin());
@@ -179,13 +172,12 @@ class _SimulasiPenyiramanScreenState extends State<SimulasiPenyiramanScreen> {
     }
   }
 
-  // Simpan hasil penyiraman: koin, last_watered_at, dan riwayat blockchain
   Future<void> _simpanPenyiraman() async {
     try {
       final koin = await _repo.catatPenyiraman(await idUserLogin());
       if (mounted) setState(() => _poinUser = koin);
 
-      // Sudah menyiram: hentikan sisa notifikasi hari ini (besok mulai lagi)
+  
       if (_pengingatAktif) {
         await NotificationService.instance
             .jadwalkanPerJam(sudahDisiramHariIni: true);
@@ -208,7 +200,7 @@ class _SimulasiPenyiramanScreenState extends State<SimulasiPenyiramanScreen> {
         _y = event.y;
         _z = event.z;
 
-        // HP dimiringkan ke kanan (X > 2.5) -> air mengucur
+    
         if (_x > 2.5) {
           _isWatering = true;
 
@@ -229,7 +221,6 @@ class _SimulasiPenyiramanScreenState extends State<SimulasiPenyiramanScreen> {
         }
       });
 
-      // Efek samping (dialog & log) dijalankan di luar setState
       if (targetTercapai) {
         _simpanPenyiraman();
         _tampilkanPopupBerhasil();
@@ -256,7 +247,6 @@ class _SimulasiPenyiramanScreenState extends State<SimulasiPenyiramanScreen> {
       );
   }
 
-  // Pop-up berhasil menyiram
   void _tampilkanPopupBerhasil() {
     showDialog(
       context: context,
@@ -284,7 +274,6 @@ class _SimulasiPenyiramanScreenState extends State<SimulasiPenyiramanScreen> {
     );
   }
 
-  // Beli teko: pilih di toko -> tekan "Beli" -> konfirmasi
   Future<void> _beliPenyiram() async {
     final id = _tokoTerpilihId;
     if (id == null) {
@@ -344,7 +333,6 @@ class _SimulasiPenyiramanScreenState extends State<SimulasiPenyiramanScreen> {
 
     if (ya != true || !mounted) return;
 
-    // Simpan pembelian dulu; layar baru berubah kalau berhasil tersimpan
     bool berhasil;
     try {
       berhasil = await _repo.beliTeko(
@@ -367,13 +355,12 @@ class _SimulasiPenyiramanScreenState extends State<SimulasiPenyiramanScreen> {
     setState(() {
       _poinUser -= item.harga;
       item.dimiliki = true;
-      _pilihMilikId = item.id; // langsung terpilih di daftar milik
+      _pilihMilikId = item.id;
       _tokoTerpilihId = null;
     });
     _snack('Berhasil membeli ${item.nama}! Tekan "Gunakan" untuk memakainya.');
   }
 
-  // Pakai teko yang sudah dibeli
   Future<void> _gunakanPenyiram() async {
     final item = _cari(_pilihMilikId);
     if (!item.dimiliki) return;
@@ -427,23 +414,18 @@ class _SimulasiPenyiramanScreenState extends State<SimulasiPenyiramanScreen> {
               ],
             ),
             const SizedBox(height: 16),
-
-            // Arena game
+           
             _buildArena(aktif),
             const SizedBox(height: 16),
 
-            // Sensor accelerometer
             _buildSensorCard(),
             const SizedBox(height: 16),
 
-            // TAMBAH: pengingat penyiraman harian
             _buildPengingatCard(),
             const SizedBox(height: 16),
 
-            // Toko: Beli Penyiram Tanaman
             _buildTokoSection(),
 
-            // Pilih Penyiram Tanaman (yang sudah dimiliki)
             const SizedBox(height: 16),
             _buildPilihSection(),
           ],
@@ -452,8 +434,6 @@ class _SimulasiPenyiramanScreenState extends State<SimulasiPenyiramanScreen> {
     );
   }
 
-  // ───────────────────────── PENGINGAT ─────────────────────────
-  // TAMBAH
   Widget _buildPengingatCard() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -490,7 +470,6 @@ class _SimulasiPenyiramanScreenState extends State<SimulasiPenyiramanScreen> {
     );
   }
 
-  // ───────────────────────── ARENA ─────────────────────────
   Widget _buildArena(Penyiram aktif) {
     return Container(
       height: 320,
@@ -502,7 +481,7 @@ class _SimulasiPenyiramanScreenState extends State<SimulasiPenyiramanScreen> {
         borderRadius: BorderRadius.circular(16),
         child: Stack(
           children: [
-            // Tanah di bagian bawah
+
             Positioned(
               left: 0,
               right: 0,
@@ -511,7 +490,6 @@ class _SimulasiPenyiramanScreenState extends State<SimulasiPenyiramanScreen> {
               child: Container(color: const Color(0xFFD3E4D5)),
             ),
 
-            // Tag nama tanaman
             Positioned(
               top: 12,
               left: 12,
@@ -525,7 +503,6 @@ class _SimulasiPenyiramanScreenState extends State<SimulasiPenyiramanScreen> {
               ),
             ),
 
-            // Teko + tanaman
             Align(
               alignment: const Alignment(-0.15, -0.15),
               child: SizedBox(
@@ -533,7 +510,6 @@ class _SimulasiPenyiramanScreenState extends State<SimulasiPenyiramanScreen> {
                 height: 210,
                 child: Stack(
                   children: [
-                    // Tanaman cabai
                     Positioned(
                       right: 20,
                       bottom: 0,
@@ -543,7 +519,7 @@ class _SimulasiPenyiramanScreenState extends State<SimulasiPenyiramanScreen> {
                         child: CustomPaint(painter: PlantPainter()),
                       ),
                     ),
-                    // Teko (miring saat menyiram), warna sesuai teko aktif
+
                     Positioned(
                       left: 0,
                       top: 0,
@@ -573,7 +549,6 @@ class _SimulasiPenyiramanScreenState extends State<SimulasiPenyiramanScreen> {
               ),
             ),
 
-            // Indikator level air (kanan)
             Positioned(
               right: 16,
               top: 40,
@@ -612,7 +587,6 @@ class _SimulasiPenyiramanScreenState extends State<SimulasiPenyiramanScreen> {
               ),
             ),
 
-            // Banner bawah
             Positioned(
               bottom: 12,
               left: 12,
@@ -644,7 +618,6 @@ class _SimulasiPenyiramanScreenState extends State<SimulasiPenyiramanScreen> {
     );
   }
 
-  // ───────────────────────── SENSOR ─────────────────────────
   Widget _buildSensorCard() {
     return Container(
       padding: const EdgeInsets.all(14),
@@ -682,7 +655,6 @@ class _SimulasiPenyiramanScreenState extends State<SimulasiPenyiramanScreen> {
     );
   }
 
-  // ───────────────────────── TOKO ─────────────────────────
   Widget _buildTokoSection() {
     final toko = _daftarToko;
     return Column(
@@ -874,9 +846,7 @@ class _SimulasiPenyiramanScreenState extends State<SimulasiPenyiramanScreen> {
   }
 }
 
-// ═════════════════════ GAMBAR TEKO & TANAMAN ═════════════════════
 
-/// Ikon teko penyiram yang warnanya bisa diganti-ganti.
 class WateringCanIcon extends StatelessWidget {
   final double size;
   final Color color;
@@ -908,7 +878,6 @@ class WateringCanPainter extends CustomPainter {
       ..strokeWidth = w * 0.07
       ..strokeCap = StrokeCap.round;
 
-    // Badan teko
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         Rect.fromLTWH(w * 0.20, h * 0.38, w * 0.50, h * 0.56),
@@ -917,7 +886,6 @@ class WateringCanPainter extends CustomPainter {
       fill,
     );
 
-    // Corong (mengarah ke kanan-atas)
     final spout = Path()
       ..moveTo(w * 0.66, h * 0.58)
       ..lineTo(w * 0.90, h * 0.30)
@@ -926,10 +894,8 @@ class WateringCanPainter extends CustomPainter {
       ..close();
     canvas.drawPath(spout, fill);
 
-    // Kepala corong (rose)
     canvas.drawCircle(Offset(w * 0.94, h * 0.32), w * 0.075, fill);
 
-    // Pegangan atas
     canvas.drawArc(
       Rect.fromLTWH(w * 0.24, h * 0.08, w * 0.42, h * 0.62),
       math.pi,
@@ -952,7 +918,6 @@ class WateringCanPainter extends CustomPainter {
   bool shouldRepaint(covariant WateringCanPainter old) => old.color != color;
 }
 
-/// Tanaman cabai dalam pot.
 class PlantPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
@@ -962,7 +927,6 @@ class PlantPainter extends CustomPainter {
     final pot = Paint()..color = const Color(0xFFC9722B);
     final chili = Paint()..color = const Color(0xFFE5483B);
 
-    // Batang
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         Rect.fromLTWH(w * 0.47, h * 0.18, w * 0.06, h * 0.62),
@@ -989,7 +953,7 @@ class PlantPainter extends CustomPainter {
     daun(0.30, 0.64, 0.4, green);
     daun(0.52, 0.12, -1.2, green);
 
-    // Cabai
+    
     canvas.drawOval(
         Rect.fromCenter(
             center: Offset(w * 0.85, h * 0.46),
@@ -997,7 +961,7 @@ class PlantPainter extends CustomPainter {
             height: h * 0.10),
         chili);
 
-    // Pot
+   
     final potPath = Path()
       ..moveTo(w * 0.22, h * 0.80)
       ..lineTo(w * 0.78, h * 0.80)

@@ -80,7 +80,6 @@ class _ProfilScreenState extends State<ProfilScreen> {
 
       String? photoUrl;
 
-      // Ambil URL foto berdasarkan email akun lokal yang sedang login.
       try {
         final row = await Supabase.instance.client
             .from('users')
@@ -95,7 +94,6 @@ class _ProfilScreenState extends State<ProfilScreen> {
 
       if (!mounted) return;
 
-      // Sinkronkan foto profil dengan Home Page.
       profilePhotoNotifier.value = photoUrl;
 
       setState(() {
@@ -113,7 +111,6 @@ class _ProfilScreenState extends State<ProfilScreen> {
   }
 
   Future<void> _changePhoto() async {
-    // Mengambil user dari sesi login AgriSmart, bukan Supabase Auth.
     final currentUser = await AuthService.instance.currentUser();
 
     if (!mounted) return;
@@ -191,7 +188,6 @@ class _ProfilScreenState extends State<ProfilScreen> {
 
       final userId = currentUser.id!;
 
-      // Foto disimpan berdasarkan ID user lokal AgriSmart.
       final storagePath =
           '$userId/profile_${DateTime.now().millisecondsSinceEpoch}.$safeExtension';
 
@@ -211,7 +207,6 @@ class _ProfilScreenState extends State<ProfilScreen> {
 
       final photoUrl = storage.getPublicUrl(storagePath);
 
-      // Simpan URL ke database online, bukan hanya ke perangkat.
       await Supabase.instance.client
           .from('users')
           .update({'profile_picture_url': photoUrl})
@@ -221,9 +216,6 @@ class _ProfilScreenState extends State<ProfilScreen> {
 
       setState(() => _photoUrl = photoUrl);
 
-      // Notifier lama dipertahankan untuk kompatibilitas.
-      // Jika widget lain menganggap nilainya selalu berupa path file,
-      // sesuaikan widget tersebut agar bisa membaca URL jaringan.
       profilePhotoNotifier.value = photoUrl;
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -304,8 +296,6 @@ class _ProfilScreenState extends State<ProfilScreen> {
     );
   }
 
-  // ───────────────────────── UI ─────────────────────────
-
   static const _ink = Color(0xFF1E5B3E);
   static const double _maxWidth = 520;
 
@@ -349,8 +339,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
                           child: Padding(
                             padding:
                                 const EdgeInsets.fromLTRB(16, 4, 16, 16),
-                            // Sisa tinggi dibagi lewat Spacer supaya
-                            // tata letak merata di semua ukuran layar.
+                            
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [

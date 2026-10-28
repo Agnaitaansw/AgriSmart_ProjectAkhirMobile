@@ -14,8 +14,8 @@ class KemiringanLahanScreen extends StatefulWidget {
 
 class _KemiringanLahanScreenState extends State<KemiringanLahanScreen> {
   StreamSubscription<AccelerometerEvent>? _accelSubscription;
-  double _pitch = 5.1; // Derajat Pitch (X-axis)
-  double _roll = 6.7;  // Derajat Roll (Y-axis)
+  double _pitch = 5.1; 
+  double _roll = 6.7; 
   double _slopeDegree = 8.4;
   double _slopePercent = 14.8;
   bool _isLocked = false;
@@ -28,12 +28,12 @@ class _KemiringanLahanScreenState extends State<KemiringanLahanScreen> {
     _accelSubscription = accelerometerEventStream().listen((AccelerometerEvent event) {
       if (_isLocked || !mounted) return;
       setState(() {
-        // Menghitung Pitch & Roll dari Accelerometer (dalam derajat)
+        
         _pitch = (atan2(event.x, sqrt(event.y * event.y + event.z * event.z)) * 180 / pi).abs();
         _roll = (atan2(event.y, sqrt(event.x * event.x + event.z * event.z)) * 180 / pi).abs();
-        // Kemiringan terukur (vektor total)
+       
         _slopeDegree = sqrt(_pitch * _pitch + _roll * _roll);
-        // Konversi derajat ke persentase kemiringan lahan
+        
         _slopePercent = tan(_slopeDegree * pi / 180) * 100;
       });
     });

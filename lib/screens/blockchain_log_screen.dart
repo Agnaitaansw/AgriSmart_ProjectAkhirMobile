@@ -42,11 +42,9 @@ class _BlockchainLogScreenState extends State<BlockchainLogScreen> {
         _errorMessage = null;
       });
 
-      // Baca dari SQLite (milik user yang login), jadi tetap tampil saat offline
       final response =
           await BlockchainService.ambilRiwayat(await idUserLogin());
 
-      // Kirim baris yang belum terkirim ke Supabase (kalau ada koneksi)
       unawaited(BlockchainService.sinkronkan().whenComplete(() {
         if (mounted) setState(() {}); // tampilkan error kalau ada
       }));

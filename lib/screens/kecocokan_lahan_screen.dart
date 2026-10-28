@@ -21,7 +21,7 @@ class KecocokanLahanScreen extends StatefulWidget {
 class _KecocokanLahanScreenState extends State<KecocokanLahanScreen> {
   double _lat = -7.7956;
   double _lng = 110.3695;
-  double _alt = 118.0; // Altitude dalam mdpl
+  double _alt = 118.0; 
   bool _isLoading = true;
   String _zoneName = 'Dataran Rendah';
 
@@ -51,7 +51,6 @@ class _KecocokanLahanScreenState extends State<KecocokanLahanScreen> {
         setState(() {
           _lat = pos.latitude;
           _lng = pos.longitude;
-          // Menggunakan altitude dari sensor GPS perangkat
           _alt = pos.altitude > 0 ? pos.altitude : 118.0;
         });
       }
@@ -63,7 +62,6 @@ class _KecocokanLahanScreenState extends State<KecocokanLahanScreen> {
   }
 
 
-  // Hasil analisis disimpan agar halaman Tanaman memakai data yang sama.
   void _analyzeLandMatch() {
     final result = analyzeCropRecommendations(
       latitude: _lat,
@@ -86,7 +84,6 @@ class _KecocokanLahanScreenState extends State<KecocokanLahanScreen> {
     return SubPageScaffold(
       title: 'Kecocokan Lahan',
       children: [
-        // Visualisasi Peta LBS
         ClipRRect(
           borderRadius: BorderRadius.circular(14),
           child: SizedBox(
@@ -118,7 +115,6 @@ class _KecocokanLahanScreenState extends State<KecocokanLahanScreen> {
         ),
         const SizedBox(height: 12),
 
-        // Widget Informasi Koordinat & Ketinggian
         AppCard(
           child: Row(
             children: [
@@ -142,7 +138,6 @@ class _KecocokanLahanScreenState extends State<KecocokanLahanScreen> {
         ),
         const SizedBox(height: 12),
 
-        // Tag Kategori Zona Lahan
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
@@ -172,7 +167,6 @@ class _KecocokanLahanScreenState extends State<KecocokanLahanScreen> {
         ),
         const SizedBox(height: 10),
 
-        // Indikator Loading / Daftar Rekomendasi
         if (_isLoading)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 20),

@@ -43,7 +43,6 @@ class _SaranPamScreenState extends State<SaranPamScreen> {
     });
 
     try {
-      // Mengambil ID pengguna dari session login
       final userId =
           await SessionManager.instance.currentUserId();
 
@@ -53,7 +52,6 @@ class _SaranPamScreenState extends State<SaranPamScreen> {
         );
       }
 
-      // Menggabungkan kesan dan saran
       final feedbackText = '''
 Kesan:
 ${kesan.isEmpty ? '-' : kesan}
@@ -62,7 +60,6 @@ Saran:
 ${saran.isEmpty ? '-' : saran}
 '''.trim();
 
-      // Menyimpan feedback ke Supabase
       await Supabase.instance.client
           .from('feedbacks_pam')
           .insert({
@@ -75,7 +72,6 @@ ${saran.isEmpty ? '-' : saran}
 
       if (!mounted) return;
 
-      // Mengosongkan form setelah berhasil
       _kesanController.clear();
       _saranController.clear();
 
@@ -168,7 +164,6 @@ ${saran.isEmpty ? '-' : saran}
             ),
             const SizedBox(height: 14),
 
-            // Card Rating Bintang
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
