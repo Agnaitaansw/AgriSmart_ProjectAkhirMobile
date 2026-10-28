@@ -16,12 +16,10 @@ class NotificationService {
   NotificationService._();
   static final instance = NotificationService._();
 
-  /// Pasang ke MaterialApp(navigatorKey: NotificationService.navigatorKey)
-  /// supaya notifikasi bisa membuka layar dari mana saja.
   static final navigatorKey = GlobalKey<NavigatorState>();
 
-  static const _dailyId = 900; // pengingat harian lama
-  static const _hourlyBaseId = 1000; // pengingat per jam: id 1000..1099
+  static const _dailyId = 900; 
+  static const _hourlyBaseId = 1000; 
   static const _hourlyMaxId = 1100;
   static const _payloadMinigame = 'minigame';
 
@@ -39,8 +37,6 @@ class NotificationService {
     ),
   );
 
-  // Channel terpisah dan tidak berbunyi keras, supaya notifikasi tiap jam
-  // tidak mengganggu dan bisa dibisukan sendiri dari pengaturan HP.
   static const _detailsPerJam = NotificationDetails(
     android: AndroidNotificationDetails(
       'watering_hourly',
@@ -56,13 +52,11 @@ class NotificationService {
       _plugin.resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin>();
 
-  /// Panggil di main() sebelum runApp(), supaya ketukan notifikasi tertangkap.
   Future<void> init() async {
     if (_ready) return;
 
     tz.initializeTimeZones();
     try {
-      // Aman untuk flutter_timezone versi lama (String) maupun baru (objek)
       final dynamic info = await FlutterTimezone.getLocalTimezone();
       final String zone = info is String ? info : info.identifier as String;
       tz.setLocalLocation(tz.getLocation(zone));
@@ -74,7 +68,6 @@ class NotificationService {
     const android = AndroidInitializationSettings('@mipmap/ic_launcher');
     await _plugin.initialize(
       settings: const InitializationSettings(android: android),
-      // Dipanggil saat notifikasi diketuk (aplikasi sedang berjalan/di latar)
       onDidReceiveNotificationResponse: (response) {
         if (response.payload == _payloadMinigame) _bukaMinigame();
       },
@@ -82,7 +75,6 @@ class NotificationService {
     _ready = true;
   }
 
-  /// Minta izin notifikasi (Android 13+) dan alarm exact (Android 12+).
   Future<bool> requestPermissions() async {
     await init();
     final notif = await _android?.requestNotificationsPermission() ?? false;
@@ -90,19 +82,10 @@ class NotificationService {
     return notif;
   }
 
-  // ───────────────────────── PER JAM ─────────────────────────
-
-  /// Hitung ulang pengingat per jam. Panggil:
-  ///  - saat aplikasi dibuka / setelah login,
-  ///  - setelah berhasil menyiram di mini game,
-  ///  - saat toggle "Notifikasi game" diubah.
-  ///
-  /// Pengingat muncul tiap jam hanya pada hari yang belum disiram. Kalau hari
-  /// ini sudah disiram, mulai lagi besok pagi. Mengikuti toggle di profil.
   Future<void> perbaruiPengingat() async {
     try {
       await init();
-      await _plugin.cancel(id: _dailyId); // buang pengingat harian lama
+      await _plugin.cancel(id: _dailyId); 
 
       final userId = await idUserLogin();
       final prefs = await SharedPreferences.getInstance();
@@ -127,20 +110,20 @@ class NotificationService {
   /// Ingin 24 jam penuh? Isi jamMulai: 0, jamSelesai: 23.
   Future<void> jadwalkanPerJam({
     required bool sudahDisiramHariIni,
-    int jamMulai = 8,
+    int jamMulai = 9,
     int jamSelesai = 21,
     int hariKeDepan = 3,
   }) async {
     await init();
     await _batalkanPerJam();
-    await _plugin.cancel(id: _dailyId); // buang jadwal harian lama (jam 9 dst.)
+    await _plugin.cancel(id: _dailyId); 
 
     final canExact = await _android?.canScheduleExactNotifications() ?? false;
     final now = tz.TZDateTime.now(tz.local);
     var id = _hourlyBaseId;
 
     for (var d = 0; d < hariKeDepan; d++) {
-      if (d == 0 && sudahDisiramHariIni) continue; // hari ini sudah beres
+      if (d == 0 && sudahDisiramHariIni) continue; 
 
       final hari = now.add(Duration(days: d));
       for (var h = jamMulai; h <= jamSelesai; h++) {
@@ -173,11 +156,6 @@ class NotificationService {
     }
   }
 
-  // ───────────────────────── KETUK NOTIFIKASI ─────────────────────────
-
-  /// Panggil dari initState layar utama (Beranda), SETELAH routing
-  /// splash/login selesai. Menangani kasus aplikasi mati lalu dibuka
-  /// dengan mengetuk notifikasi.
   Future<void> bukaMinigameJikaDariNotifikasi() async {
     await init();
     if (_launchDitangani) return;
@@ -191,7 +169,6 @@ class NotificationService {
   }
 
   Future<void> _bukaMinigame() async {
-    // Belum login / sesi habis: biarkan aplikasi menampilkan layar login
     if (!await SessionManager.instance.isValid()) return;
 
     navigatorKey.currentState?.push(
@@ -199,13 +176,9 @@ class NotificationService {
     );
   }
 
-  // ───────────────────────── LAMA (tetap ada) ─────────────────────────
-
-  /// Jadwalkan notifikasi penyiraman setiap hari pada jam tertentu.
-  /// Tidak perlu dipanggil lagi kalau memakai pengingat per jam.
   Future<void> scheduleDailyWatering({int hour = 21, int minute = 52}) async {
     await init();
-    await _plugin.cancel(id: _dailyId); // hindari jadwal dobel
+    await _plugin.cancel(id: _dailyId); 
 
     final canExact = await _android?.canScheduleExactNotifications() ?? false;
 
@@ -223,14 +196,13 @@ class NotificationService {
     );
   }
 
-  /// Batalkan semua pengingat penyiraman (harian dan per jam). Panggil saat logout.
   Future<void> cancelWatering() async {
     await init();
     await _plugin.cancel(id: _dailyId);
     await _batalkanPerJam();
   }
 
-  /// Cek apakah ada pengingat penyiraman yang sedang terjadwal di sistem.
+
   Future<bool> isWateringScheduled() async {
     await init();
     final pending = await _plugin.pendingNotificationRequests();
@@ -246,7 +218,6 @@ class NotificationService {
     return t;
   }
 
-  /// Untuk tes cepat: muncul langsung. Diketuk akan membuka mini game.
   Future<void> showTest() async {
     await init();
     await _plugin.show(
