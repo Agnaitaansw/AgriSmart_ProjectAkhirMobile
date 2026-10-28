@@ -475,7 +475,7 @@ class _SimulasiPenyiramanScreenState extends State<SimulasiPenyiramanScreen> {
                     style:
                         TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                 SizedBox(height: 2),
-                Text('Muncul tiap jam (08.00-21.00) selama belum menyiram.',
+                Text('Muncul tiap jam (09.00-21.00) selama belum menyiram.',
                     style: TextStyle(fontSize: 10, color: AppColors.muted)),
               ],
             ),

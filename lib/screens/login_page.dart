@@ -1,56 +1,45 @@
 import 'package:flutter/material.dart';
-
 import '../services/auth_service.dart';
 import '../utils/constants.dart';
 import '../widgets/auth_widgets.dart';
 import 'home_page.dart';
 import 'register_page.dart';
-
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
-
   @override
   State<LoginPage> createState() => _LoginPageState();
 }
-
 class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
   final _idCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
   final _auth = AuthService.instance;
-
   bool _obscure = true;
   bool _remember = true;
   bool _loading = false;
-
   @override
   void initState() {
     super.initState();
     _prefill();
     _auth.syncPending(); // kirim akun offline ke server bila sudah online
   }
-
   Future<void> _prefill() async {
     final last = await _auth.lastIdentifier();
     if (last != null && mounted) _idCtrl.text = last;
   }
-
   @override
   void dispose() {
     _idCtrl.dispose();
     _passCtrl.dispose();
     super.dispose();
   }
-
   void _goHome() {
     Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const BerandaScreen()));
   }
-
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _loading = true);
-
     final res = await _auth.login(
       identifier: _idCtrl.text,
       password: _passCtrl.text,
@@ -58,21 +47,19 @@ class _LoginPageState extends State<LoginPage> {
     );
     if (!mounted) return;
     setState(() => _loading = false);
-
     if (!res.ok) {
       showSnack(context, res.message, error: true);
       return;
     }
-
     // Tawarkan aktivasi biometrik setelah login password pertama.
     if (await _auth.isBiometricAvailable() && !await _auth.isBiometricEnabled()) {
       if (!mounted) return;
       final yes = await showDialog<bool>(
         context: context,
         builder: (_) => AlertDialog(
-          title: const Text('Aktifkan login biometrik?'),
+          title: const Text('Aktifkan login sidik jari?'),
           content: const Text(
-              'Lain kali kamu bisa masuk cepat dengan sidik jari atau pengenalan wajah.'),
+              'Lain kali kamu bisa masuk cepat menggunakan sidik jari.'),
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(context, false),
@@ -87,7 +74,6 @@ class _LoginPageState extends State<LoginPage> {
     }
     if (mounted) _goHome();
   }
-
   Future<void> _biometric() async {
     setState(() => _loading = true);
     final res = await _auth.loginWithBiometric(remember: _remember);
@@ -99,7 +85,6 @@ class _LoginPageState extends State<LoginPage> {
       showSnack(context, res.message, error: true);
     }
   }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -191,20 +176,15 @@ class _LoginPageState extends State<LoginPage> {
                       Expanded(child: Divider()),
                     ]),
                     const SizedBox(height: 14),
-                    Row(
-                      children: [
-                        Expanded(
-                            child: _BioButton(
-                                icon: Icons.fingerprint,
-                                label: 'Sidik jari',
-                                onTap: _loading ? null : _biometric)),
-                        const SizedBox(width: 12),
-                        Expanded(
-                            child: _BioButton(
-                                icon: Icons.face_retouching_natural,
-                                label: 'Pengenalan wajah',
-                                onTap: _loading ? null : _biometric)),
-                      ],
+                    Center(
+                      child: SizedBox(
+                        width: 180,
+                        child: _BioButton(
+                          icon: Icons.fingerprint,
+                          label: 'Sidik jari',
+                          onTap: _loading ? null : _biometric,
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 18),
                     Center(
@@ -259,13 +239,11 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 }
-
 class _BioButton extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback? onTap;
   const _BioButton({required this.icon, required this.label, this.onTap});
-
   @override
   Widget build(BuildContext context) {
     return InkWell(

@@ -38,6 +38,8 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - lib/assets/icon/plantguard_icon.png
 
 flutter_launcher_icons:
   android: true
@@ -46,9 +48,9 @@ flutter_launcher_icons:
 
 flutter_native_splash:
   color: "#F3F7F1"
-  image: assets/icon/icon.png
+  image: "assets/icon/icon.png"
   android: true
   ios: false
   android_12:
     color: "#F3F7F1"
-    image: lib/assets/icon/icon.png
+    image: "assets/icon/icon.png"
