@@ -44,6 +44,11 @@ flutter_launcher_icons:
   ios: false
   image_path: "lib/assets/icon/icon.jpeg"
 
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "lib/assets/icon/plantguard_icon.png"  
+
 flutter_native_splash:
   color: "#F3F7F1"
   image: assets/icon/icon.png

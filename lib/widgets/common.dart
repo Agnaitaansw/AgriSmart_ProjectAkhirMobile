@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../screens/login_page.dart';
 import '../screens/profil_screen.dart';
+import '../screens/plantguard_screen.dart';
 import '../screens/saran_pam_screen.dart';
 import '../services/auth_service.dart';
 import '../utils/constants.dart';
@@ -212,7 +213,8 @@ class _DashedRRectPainter extends CustomPainter {
 class AppBottomNav extends StatelessWidget {
   const AppBottomNav({super.key, this.currentIndex = 0});
 
-  /// 0 = Beranda, 1 = Profil, 2 = Saran PAM
+  /// Index lama tetap dipertahankan: 0 = Beranda, 1 = Profil, 2 = Saran PAM.
+  /// PlantGuard memakai index 3 jika halaman perlu menandai navigasi aktif.
   final int currentIndex;
 
   Future<void> _logout(BuildContext context) async {
@@ -264,6 +266,7 @@ class AppBottomNav extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 8),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               _NavItem(
                 icon: Icons.home_outlined,
@@ -278,6 +281,10 @@ class AppBottomNav extends StatelessWidget {
                 label: 'Profil',
                 selected: currentIndex == 1,
                 onTap: () => _go(context, 1, const ProfilScreen()),
+              ),
+              _PlantGuardNavItem(
+                selected: currentIndex == 3,
+                onTap: () => _go(context, 3, const PlantGuardScreen()),
               ),
               _NavItem(
                 icon: Icons.chat_bubble_outline,
@@ -355,6 +362,99 @@ class _NavItem extends StatelessWidget {
                 fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
               ),
               child: Text(label),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+/// Tombol PlantGuard di tengah navigasi dengan ikon bulat yang menonjol.
+/// Menggunakan asset agar ikon khusus PlantGuard tampil konsisten.
+class _PlantGuardNavItem extends StatelessWidget {
+  const _PlantGuardNavItem({
+    required this.onTap,
+    this.selected = false,
+  });
+
+  final VoidCallback onTap;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final labelColor = selected ? AppColors.green : Colors.black87;
+
+    return Expanded(
+      child: SizedBox(
+        height: 62,
+        child: Stack(
+          clipBehavior: Clip.none,
+          alignment: Alignment.topCenter,
+          children: [
+            Positioned(
+              top: -13,
+              left: 0,
+              right: 0,
+              child: InkWell(
+                onTap: onTap,
+                borderRadius: BorderRadius.circular(32),
+                splashColor: AppColors.greenSoft,
+                highlightColor: AppColors.greenSoft.withAlpha(153),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      curve: Curves.easeOut,
+                      width: 58,
+                      height: 58,
+                      padding: const EdgeInsets.all(3),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: selected ? AppColors.green : Colors.white,
+                          width: selected ? 2.5 : 1.5,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.green.withAlpha(55),
+                            blurRadius: selected ? 12 : 9,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: ClipOval(
+                        child: Image.asset(
+                          'assets/plantguard_icon.png',
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            color: AppColors.green,
+                            alignment: Alignment.center,
+                            child: const Icon(
+                              Icons.health_and_safety_rounded,
+                              color: Colors.white,
+                              size: 30,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    AnimatedDefaultTextStyle(
+                      duration: const Duration(milliseconds: 200),
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: labelColor,
+                        fontWeight: selected ? FontWeight.w800 : FontWeight.w700,
+                      ),
+                      child: const Text('PlantGuard'),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ],
         ),
